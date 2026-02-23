@@ -1,0 +1,8 @@
+build/
+.env
+analysis_logs/
+*.bin.gz
+*.txt.gz
+tools/tromp_score
+tools/tromp_score.hi
+tools/tromp_score.o
