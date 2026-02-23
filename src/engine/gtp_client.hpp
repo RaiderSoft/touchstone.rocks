@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include "go/board.h"
+#include "go/board.hpp"
 
 namespace gtp {
 

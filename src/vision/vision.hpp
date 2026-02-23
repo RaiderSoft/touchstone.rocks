@@ -10,7 +10,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
 
-#include "calibration.h"
+#include "vision/calibration.hpp"
 
 namespace touchstone {
 

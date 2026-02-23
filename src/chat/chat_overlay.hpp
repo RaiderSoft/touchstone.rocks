@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ai_provider.h"
-#include "audio_io.h"
+#include "chat/ai_provider.hpp"
+#include "audio/audio_io.hpp"
 #include "raylib.h"
 
 #include <atomic>

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "go/game.h"
+#include "go/game.hpp"
 
 using go::Game;
 using go::GamePhase;

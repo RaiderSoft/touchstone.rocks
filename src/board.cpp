@@ -1,4 +1,4 @@
-#include "go/board.h"
+#include "go/board.hpp"
 
 #include <algorithm>
 #include <sstream>

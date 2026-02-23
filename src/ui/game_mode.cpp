@@ -1,4 +1,4 @@
-#include "game_mode.h"
+#include "ui/game_mode.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -8,11 +8,11 @@
 #include <vector>
 
 #include "board.hpp"
-#include "game_board.h"
-#include "game_save.h"
-#include "go/game.h"
-#include "go/move.h"
-#include "go/scoring.h"
+#include "ui/game_board.hpp"
+#include "persist/game_save.hpp"
+#include "go/game.hpp"
+#include "go/move.hpp"
+#include "go/scoring.hpp"
 #include "raylib.h"
 
 // ---------------------------------------------------------------------------

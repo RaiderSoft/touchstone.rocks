@@ -5,8 +5,8 @@
 
 #include <curl/curl.h>
 
-#include "ai_provider.h"
-#include "dotenv.h"
+#include "chat/ai_provider.hpp"
+#include "persist/dotenv.hpp"
 
 // ---------------------------------------------------------------------------
 // dotenv tests

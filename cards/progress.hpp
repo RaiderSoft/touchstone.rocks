@@ -5,8 +5,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "cards.h"
-#include "nodes.h"
+#include "cards.hpp"
+#include "nodes.hpp"
 
 namespace touchstone {
 

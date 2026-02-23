@@ -1,4 +1,4 @@
-#include "go/scoring.h"
+#include "go/scoring.hpp"
 
 #include <algorithm>
 #include <queue>

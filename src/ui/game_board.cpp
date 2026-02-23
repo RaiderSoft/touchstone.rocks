@@ -1,4 +1,4 @@
-#include "game_board.h"
+#include "ui/game_board.hpp"
 
 #include <algorithm>
 #include <cstdlib>

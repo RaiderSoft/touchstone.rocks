@@ -1,7 +1,7 @@
 #pragma once
 
-#include "cards.h"
-#include "vision.h"
+#include "cards.hpp"
+#include "vision/vision.hpp"
 
 // Interactive camera calibration and detection debug mode.
 void RunVisionDevMode();

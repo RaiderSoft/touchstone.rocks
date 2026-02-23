@@ -2,11 +2,11 @@
 
 #include <vector>
 
-#include "go/board.h"
-#include "go/game.h"
-#include "go/move.h"
+#include "go/board.hpp"
+#include "go/game.hpp"
+#include "go/move.hpp"
 #include "raylib.h"
-#include "vision.h"
+#include "vision/vision.hpp"
 
 // Board rendering helpers for fullscreen game mode.
 struct GameBoard {

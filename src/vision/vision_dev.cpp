@@ -1,8 +1,8 @@
-#include "vision_dev.h"
+#include "vision/vision_dev.hpp"
 
 #include <cstdio>
 
-#include "go/board.h"
+#include "go/board.hpp"
 #include "raylib.h"
 
 // ---------------------------------------------------------------------------

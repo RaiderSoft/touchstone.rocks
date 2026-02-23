@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "go/board.h"
-#include "go/move.h"
+#include "go/board.hpp"
+#include "go/move.hpp"
 
 using go::Board;
 using go::IsSuicide;
