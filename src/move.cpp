@@ -1,4 +1,4 @@
-#include "go/move.h"
+#include "go/move.hpp"
 
 #include <algorithm>
 #include <queue>

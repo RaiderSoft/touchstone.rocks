@@ -1,4 +1,4 @@
-#include "chat_overlay.h"
+#include "chat/chat_overlay.hpp"
 
 #include "raylib.h"
 

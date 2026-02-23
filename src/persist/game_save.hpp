@@ -3,8 +3,8 @@
 #include <string>
 #include <vector>
 
-#include "game_mode.h"
-#include "katago_engine.h"
+#include "ui/game_mode.hpp"
+#include "engine/katago_engine.hpp"
 
 namespace touchstone {
 

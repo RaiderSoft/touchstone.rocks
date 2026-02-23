@@ -50,15 +50,15 @@ target_include_directories(go_engine PUBLIC include)
 # Touchstone — tangible Go with KataGo AI, voice, and vision
 add_executable(touchstone
     src/main.cpp
-    src/game_board.cpp
-    src/game_mode.cpp
-    src/chat_overlay.cpp
-    src/ai_provider.cpp
-    src/katago_engine.cpp
-    src/game_save.cpp
-    src/dotenv.cpp
-    src/audio_encoding.cpp
-    src/audio_io.cpp
+    src/ui/game_board.cpp
+    src/ui/game_mode.cpp
+    src/chat/chat_overlay.cpp
+    src/chat/ai_provider.cpp
+    src/engine/katago_engine.cpp
+    src/persist/game_save.cpp
+    src/persist/dotenv.cpp
+    src/audio/audio_encoding.cpp
+    src/audio/audio_io.cpp
     cards/cards.cpp
     cards/card_data.cpp
 )
@@ -68,13 +68,13 @@ target_link_libraries(touchstone PRIVATE go_engine board_lib CURL::libcurl nlohm
 # OpenCV vision component for camera-based board detection
 find_package(OpenCV REQUIRED COMPONENTS core imgproc videoio)
 add_library(touchstone_vision
-    vision/vision.cpp
-    vision/calibration.cpp
+    src/vision/vision.cpp
+    src/vision/calibration.cpp
 )
-target_include_directories(touchstone_vision PUBLIC vision)
+target_include_directories(touchstone_vision PUBLIC src)
 target_link_libraries(touchstone_vision PUBLIC ${OpenCV_LIBS})
 target_link_libraries(touchstone PRIVATE touchstone_vision)
-target_sources(touchstone PRIVATE vision/vision_dev.cpp)
+target_sources(touchstone PRIVATE src/vision/vision_dev.cpp)
 
 # Tests
 enable_testing()
@@ -96,9 +96,9 @@ add_test(NAME GoTests COMMAND go_tests)
 
 add_executable(ai_tests
     tests/test_ai.cpp
-    src/ai_provider.cpp
-    src/audio_encoding.cpp
-    src/dotenv.cpp
+    src/chat/ai_provider.cpp
+    src/audio/audio_encoding.cpp
+    src/persist/dotenv.cpp
 )
 target_include_directories(ai_tests PRIVATE include src)
 target_link_libraries(ai_tests PRIVATE CURL::libcurl nlohmann_json::nlohmann_json GTest::gtest_main)
@@ -106,8 +106,8 @@ add_test(NAME AITests COMMAND ai_tests)
 
 add_executable(katago_tests
     tests/test_katago_coords.cpp
-    src/katago_engine.cpp
-    src/gtp_client.cpp
+    src/engine/katago_engine.cpp
+    src/engine/gtp_client.cpp
 )
 target_include_directories(katago_tests PRIVATE include src)
 target_link_libraries(katago_tests PRIVATE go_engine nlohmann_json::nlohmann_json GTest::gtest_main)

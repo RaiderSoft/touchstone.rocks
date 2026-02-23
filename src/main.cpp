@@ -5,22 +5,22 @@
 #include <vector>
 
 #include "board.hpp"
-#include "cards.h"
-#include "chat_overlay.h"
-#include "dotenv.h"
-#include "game_board.h"
-#include "game_mode.h"
-#include "katago_engine.h"
-#include "go/board.h"
-#include "go/game.h"
-#include "go/move.h"
-#include "go/scoring.h"
+#include "cards.hpp"
+#include "chat/chat_overlay.hpp"
+#include "persist/dotenv.hpp"
+#include "ui/game_board.hpp"
+#include "ui/game_mode.hpp"
+#include "engine/katago_engine.hpp"
+#include "go/board.hpp"
+#include "go/game.hpp"
+#include "go/move.hpp"
+#include "go/scoring.hpp"
 #include "raylib.h"
 
 #include <curl/curl.h>
 
-#include "vision.h"
-#include "vision_dev.h"
+#include "vision/vision.hpp"
+#include "vision/vision_dev.hpp"
 
 // ---------------------------------------------------------------------------
 // Puzzle helpers

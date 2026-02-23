@@ -3,10 +3,10 @@
 #include <string>
 #include <vector>
 
-#include "chat_overlay.h"
-#include "go/game.h"
-#include "katago_engine.h"
-#include "vision.h"
+#include "chat/chat_overlay.hpp"
+#include "go/game.hpp"
+#include "engine/katago_engine.hpp"
+#include "vision/vision.hpp"
 
 struct GameSettings {
   go::Stone human_color = go::Stone::kBlack;

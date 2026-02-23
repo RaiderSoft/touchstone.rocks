@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "go/board.h"
+#include "go/board.hpp"
 
 using go::Board;
 using go::Stone;

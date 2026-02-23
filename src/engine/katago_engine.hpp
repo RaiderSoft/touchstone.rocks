@@ -10,8 +10,8 @@
 #include <thread>
 #include <vector>
 
-#include "go/board.h"
-#include "go/game.h"
+#include "go/board.hpp"
+#include "go/game.hpp"
 
 namespace katago {
 

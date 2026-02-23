@@ -1,8 +1,8 @@
 #pragma once
 
-#include "go/board.h"
-#include "go/move.h"
-#include "go/scoring.h"
+#include "go/board.hpp"
+#include "go/move.hpp"
+#include "go/scoring.hpp"
 
 namespace go {
 

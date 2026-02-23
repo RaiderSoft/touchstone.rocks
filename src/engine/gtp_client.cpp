@@ -1,4 +1,4 @@
-#include "gtp_client.h"
+#include "engine/gtp_client.hpp"
 
 #include <fcntl.h>
 #include <signal.h>
@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "katago_engine.h"  // PosToGtp, StoneToGtp
+#include "engine/katago_engine.hpp"  // PosToGtp, StoneToGtp
 
 namespace gtp {
 

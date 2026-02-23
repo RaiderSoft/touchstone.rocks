@@ -1,6 +1,6 @@
-#include "ai_provider.h"
+#include "chat/ai_provider.hpp"
 
-#include "audio_encoding.h"
+#include "audio/audio_encoding.hpp"
 
 #include <curl/curl.h>
 #include <nlohmann/json.hpp>

@@ -1,4 +1,4 @@
-#include "go/game.h"
+#include "go/game.hpp"
 
 namespace go {
 

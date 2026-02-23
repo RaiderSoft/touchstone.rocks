@@ -7,8 +7,8 @@
 #include <sstream>
 #include <string>
 
-#include "go/board.h"
-#include "go/scoring.h"
+#include "go/board.hpp"
+#include "go/scoring.hpp"
 
 // Integration tests: score end-game positions with both our internal
 // CalculateScore() and John Tromp's reference Tromp-Taylor scorer,

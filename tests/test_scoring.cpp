@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "go/board.h"
-#include "go/scoring.h"
+#include "go/board.hpp"
+#include "go/scoring.hpp"
 
 using go::Board;
 using go::CalculateScore;

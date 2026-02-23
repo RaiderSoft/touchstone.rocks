@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-#include "go/board.h"
+#include "go/board.hpp"
 
 using go::Board;
 

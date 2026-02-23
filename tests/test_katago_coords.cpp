@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "katago_engine.h"
+#include "engine/katago_engine.hpp"
 
 // --- PosToGtp tests ---
 

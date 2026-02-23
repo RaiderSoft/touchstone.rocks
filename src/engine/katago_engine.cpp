@@ -1,4 +1,4 @@
-#include "katago_engine.h"
+#include "engine/katago_engine.hpp"
 
 #include <fcntl.h>
 #include <poll.h>

@@ -1,6 +1,6 @@
-#include "audio_io.h"
+#include "audio/audio_io.hpp"
 
-#include "audio_encoding.h"
+#include "audio/audio_encoding.hpp"
 #include "raylib.h"
 
 #include <AudioToolbox/AudioToolbox.h>
