@@ -1,13 +1,97 @@
 # touchstone.rocks
 
-9x9 Go game with KataGo AI opponent, camera-based board vision, and LLM chat overlay.
+Play Go against a computer on a real board. A webcam watches the board, detects your stones, and KataGo plays back. Also works as a regular desktop app.
+
+## Features
+
+### Camera Vision
+
+A webcam pointed at a physical Go board detects the full board state in real time.
+
+- **Stone detection** using OpenCV: identifies black, white, and empty intersections from a live camera feed
+- **Interactive calibration**: set 4 corner points of the board, compute perspective transform, persist calibration data across sessions
+- **Temporal smoothing** and confidence scoring to filter noise (5-frame confirmation threshold before registering a move)
+- **Mismatch highlighting** when the physical board diverges from expected state
+- **Setup verification** for placing puzzle positions on a real board
+
+### Board & Game Play
+
+- **9x9, 13x13, and 19x19 boards** with full rule enforcement (captures, ko, suicide prevention)
+- **Play vs Computer** at 5 difficulty levels using KataGo's human-like play profiles (20k Novice through 1k Advanced)
+- **Play from Position** setup mode: place black/white stones or erase to create arbitrary board positions, then play from there
+- **Undo/Redo** full move history navigation
+- **Chinese scoring** (Tromp-Taylor) with automatic territory detection, configurable komi
+
+### AI Analysis
+
+- **KataGo integration** via GTP with async position analysis
+- **Win rate and score lead** tracked per move across the entire game
+- **Move quality assessment** for every move (blunder / inaccuracy / good / great) shown as color-coded rings
+- **Top move suggestions** overlay showing KataGo's top 3 recommended moves
+- **Territory ownership heatmap** visualizing who controls which regions
+- **Statistics panel** with detailed analysis: win rates, score lead, move quality history
+
+### Puzzles (under construction)
+
+- **Four puzzle categories**: Capture, Defend, Life & Death, Tesuji
+- **Deck of predefined positions** with hints, multiple correct solutions, and explanations
+- **Immediate feedback** on correct/incorrect moves
+- **Progress tracking** per puzzle (solved / attempted / untried)
+- **Vision mode support**: place puzzle positions on a physical board and solve them there
+
+The puzzle infrastructure is in place but the puzzle content itself needs work.
+
+### Voice Interaction
+
+- **Speech-to-text** via microphone recording, WAV encoding, and Gemini API transcription
+- **Text-to-speech** for AI responses with async PCM audio playback
+- **Visual indicators** showing recording and transcription state
+
+### LLM Chat Overlay
+
+- **Claude and Gemini** support with Tab to switch models
+- **Game coach mode**: system prompt provides Go theory and strategic advice grounded in the current board state
+- **Opponent persona mode**: AI analyzes the position as your sitting opponent
+- **Scrollable message history** with fade animation when chat is closed
+- **Voice input** for hands-free conversation during play
+
+### Save / Load
+
+- **Named saves** with auto-captured metadata (board size, move count, timestamp)
+- **Full state persistence**: move history, per-move analysis records (win rates, score leads, top suggestions, quality), and UI state
+- **Browse, load, and delete** saved games from the pause menu
+
+### Display & Controls
+
+| Key | Action |
+|-----|--------|
+| Click | Place stone |
+| `P` | Pass |
+| `Backspace` | Undo |
+| `R` | Redo |
+| `O` | Toggle territory ownership overlay |
+| `A` | Toggle top move suggestions |
+| `K` | Toggle KataGo statistics panel |
+| `T` | Toggle atari indicator (stones with 1 liberty) |
+| `G` | Toggle liberty count display |
+| `H` | Toggle help screen |
+| `Enter` | Open chat overlay |
+| `Tab` | Switch LLM model (in chat) |
+| `ESC` | Pause / quit |
+
+### Pre-Game Configuration
+
+- **Color selection**: play as Black (first) or White
+- **Board size selection**: 9x9, 13x13, or 19x19
+- **Difficulty presets**: 5 levels with descriptive labels and rank indicators
 
 ## Dependencies
 
 - CMake 3.14+
 - C++17 compiler
 - libcurl (system-installed on macOS)
-- OpenCV (core, imgproc, videoio)
+- Raylib (graphics, input, audio)
+- OpenCV (core, imgproc, videoio) for vision mode
 - KataGo (required for game play)
 
 ### Installing KataGo (macOS)
@@ -57,10 +141,11 @@ cp .env.example .env
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `KATAGO_PATH` | Path to katago binary | `/opt/homebrew/bin/katago` |
+| `KATAGO_HUMAN_MODEL` | Path to human-like play model for difficulty profiles | (uses KATAGO_MODEL) |
 | `KATAGO_CONFIG` | Path to analysis config file | (KataGo defaults) |
 | `KATAGO_ANALYSIS_VISITS` | Default analysis visits | `200` |
 | `CLAUDE_API_KEY` | Anthropic API key for chat overlay | (chat disabled) |
-| `GEMINI_API_KEY` | Google Gemini API key for chat overlay | (chat disabled) |
+| `GEMINI_API_KEY` | Google Gemini API key for chat, STT, and TTS | (chat/voice disabled) |
 
 ### Example .env
 
@@ -89,22 +174,11 @@ For vision (camera) support, OpenCV must be installed (`brew install opencv`).
 
 The app will fail to start if `KATAGO_MODEL` is not set or KataGo cannot be launched.
 
-## Game Controls
+For the vision calibration/dev tool:
 
-| Key | Action |
-|-----|--------|
-| Click | Place stone |
-| `P` | Pass |
-| `O` | Toggle ownership overlay (KataGo) |
-| `A` | Toggle top move suggestions (KataGo) |
-| `K` | Toggle KataGo statistics panel |
-| `ESC` | Pause / quit |
-| `ENTER` | Open chat overlay |
-| `TAB` | Switch LLM model (in chat) |
-
-## Vision Mode
-
-If a calibrated camera is detected, the app enters vision mode where stones are placed on a physical board and detected via camera. Run `./build/touchstone vision` for the vision calibration/dev tool.
+```bash
+./build/touchstone vision
+```
 
 ## Tests
 
