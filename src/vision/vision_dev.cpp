@@ -107,9 +107,8 @@ static bool DrawSlider(const Slider& s) {
   DrawCircle((int)thumb_x, (int)(s.bounds.y + s.bounds.height / 2), 6,
              hovering ? WHITE : LIGHTGRAY);
 
-  char buf[64];
-  snprintf(buf, sizeof(buf), "%s: %.0f", s.label, *s.value);
-  DrawText(buf, (int)s.bounds.x, (int)s.bounds.y - 16, 14, RAYWHITE);
+  DrawText(TextFormat("%s: %.0f", s.label, *s.value),
+           (int)s.bounds.x, (int)s.bounds.y - 16, 14, RAYWHITE);
 
   return changed;
 }
@@ -135,15 +134,20 @@ static bool DrawButton(const Button& b, Color color) {
 // ---------------------------------------------------------------------------
 
 void RunVisionDevMode() {
-  const int BOARD_SIZE = 9;
   const int CAM_W = 640;
   const int CAM_H = 480;
   const int PANEL_W = 340;
   const int WIN_W = CAM_W + PANEL_W;
   const int WIN_H = CAM_H + 60;
 
-  touchstone::VisionSystem vision(BOARD_SIZE);
-  vision.LoadCalibration();
+  // Load saved calibration to get persisted board size.
+  // board_size 0 means "None" (vision disabled).
+  auto saved_cal = touchstone::LoadCalibrationData();
+  int board_size = saved_cal.board_size;  // 0, 9, or 13.
+  if (board_size != 0 && board_size != 9 && board_size != 13) board_size = 9;
+
+  touchstone::VisionSystem vision(board_size > 0 ? board_size : 9);
+  if (board_size > 0) vision.LoadCalibration();
 
   InitWindow(WIN_W, WIN_H, "Touchstone Vision");
   SetTargetFPS(30);
@@ -188,6 +192,7 @@ void RunVisionDevMode() {
           corners_set++;
           if (corners_set == 4) {
             vision.GetCalibration().valid = true;
+            vision.GetCalibration().board_size = board_size;
             vision.UpdateTransform();
             vision.SaveCalibration();
             calibrated = true;
@@ -211,15 +216,15 @@ void RunVisionDevMode() {
 
     if (calibrated) {
       auto det = vision.GetLatestDetection();
-      for (int row = 0; row < BOARD_SIZE; row++) {
-        for (int col = 0; col < BOARD_SIZE; col++) {
+      for (int row = 0; row < board_size; row++) {
+        for (int col = 0; col < board_size; col++) {
           float gx, gy;
           vision.GetGridPoint(row, col, gx, gy);
           int ix = (int)gx, iy = (int)gy;
 
           Color dot = GREEN;
           if (det.board_found) {
-            int pos = row * BOARD_SIZE + col;
+            int pos = row * board_size + col;
             if (pos < (int)det.board.size()) {
               if (det.board[pos] == touchstone::StoneColor::kBlack)
                 dot = Color{40, 40, 40, 255};
@@ -231,13 +236,13 @@ void RunVisionDevMode() {
           DrawCircleLines(ix, iy, 5, YELLOW);
         }
       }
-      for (int i = 0; i < BOARD_SIZE; i++) {
+      for (int i = 0; i < board_size; i++) {
         float x0, y0, x1, y1;
         vision.GetGridPoint(i, 0, x0, y0);
-        vision.GetGridPoint(i, BOARD_SIZE - 1, x1, y1);
+        vision.GetGridPoint(i, board_size - 1, x1, y1);
         DrawLine((int)x0, (int)y0, (int)x1, (int)y1, YELLOW);
         vision.GetGridPoint(0, i, x0, y0);
-        vision.GetGridPoint(BOARD_SIZE - 1, i, x1, y1);
+        vision.GetGridPoint(board_size - 1, i, x1, y1);
         DrawLine((int)x0, (int)y0, (int)x1, (int)y1, YELLOW);
       }
     }
@@ -249,13 +254,50 @@ void RunVisionDevMode() {
     const int SLIDER_H = 16;
     const int ROW_H = 50;
 
+    DrawText("BOARD SIZE", px, py, 16, SKYBLUE);
+    py += 22;
+    {
+      const int SZ_BTN_W = 80;
+      const int SZ_BTN_H = 24;
+      const int SZ_GAP = 10;
+      // 0 = None (vision disabled), 9 = 9x9, 13 = 13x13.
+      static const int kVisionSizes[] = {9, 13, 0};
+      static const char* kVisionLabels[] = {"9x9", "13x13", "None"};
+      for (int i = 0; i < 3; i++) {
+        int bx = px + i * (SZ_BTN_W + SZ_GAP);
+        Button sz_btn = {{(float)bx, (float)py, (float)SZ_BTN_W,
+                           (float)SZ_BTN_H},
+                          kVisionLabels[i]};
+        bool sel = (board_size == kVisionSizes[i]);
+        Color color = sel ? GREEN : GRAY;
+        if (DrawButton(sz_btn, color) && !sel) {
+          board_size = kVisionSizes[i];
+          if (board_size == 0) {
+            // Disable vision: invalidate calibration and save.
+            corners_set = 0;
+            calibrated = false;
+            vision.GetCalibration().valid = false;
+            vision.GetCalibration().board_size = 0;
+            vision.SaveCalibration();
+          } else {
+            vision.SetBoardSize(board_size);
+            // Reset calibration — corners are specific to a board size.
+            corners_set = 0;
+            calibrated = false;
+            vision.GetCalibration().valid = false;
+            vision.GetCalibration().board_size = board_size;
+          }
+        }
+      }
+    }
+    py += 34;
+
     DrawText("CALIBRATION", px, py, 16, SKYBLUE);
     py += 22;
     if (!calibrated && corners_set < 4) {
-      char buf[64];
-      snprintf(buf, sizeof(buf), "Click corner %d/4: %s", corners_set + 1,
-               corner_labels[corners_set]);
-      DrawText(buf, px, py, 14, YELLOW);
+      DrawText(TextFormat("Click corner %d/4: %s", corners_set + 1,
+                          corner_labels[corners_set]),
+               px, py, 14, YELLOW);
     } else if (calibrated) {
       DrawText("Calibrated", px, py, 14, GREEN);
     }
@@ -270,6 +312,7 @@ void RunVisionDevMode() {
 
     Button save_btn = {{(float)(px + 130), (float)py, 80, 24}, "Save"};
     if (DrawButton(save_btn, GREEN) && calibrated) {
+      vision.GetCalibration().board_size = board_size;
       vision.SaveCalibration();
     }
     py += 40;
@@ -316,11 +359,11 @@ void RunVisionDevMode() {
     if (calibrated) {
       auto det = vision.GetLatestDetection();
       if (det.board_found) {
-        for (int row = 0; row < BOARD_SIZE; row++) {
+        for (int row = 0; row < board_size; row++) {
           char line[64];
           int off = 0;
-          for (int col = 0; col < BOARD_SIZE; col++) {
-            int pos = row * BOARD_SIZE + col;
+          for (int col = 0; col < board_size; col++) {
+            int pos = row * board_size + col;
             char ch = '.';
             if (pos < (int)det.board.size()) {
               if (det.board[pos] == touchstone::StoneColor::kBlack)
@@ -339,12 +382,14 @@ void RunVisionDevMode() {
       DrawText("(not calibrated)", px, py, 14, GRAY);
     }
 
-    char fps_buf[32];
-    snprintf(fps_buf, sizeof(fps_buf), "FPS: %d", GetFPS());
-    DrawText(fps_buf, 10, WIN_H - 22, 14, LIME);
+    DrawText(TextFormat("FPS: %d", GetFPS()), 10, WIN_H - 22, 14, LIME);
 
     EndDrawing();
   }
+
+  // Auto-save detection params on close.
+  vision.GetCalibration().board_size = board_size;
+  vision.SaveCalibration();
 
   UnloadTexture(cam_tex);
   vision.Stop();

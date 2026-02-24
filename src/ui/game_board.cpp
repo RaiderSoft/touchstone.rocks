@@ -6,13 +6,14 @@
 GameBoard CalcGameBoard(int size, int screen_w, int screen_h) {
   GameBoard gb;
   gb.size = size;
+  constexpr int kRightMargin = 100;
   int board_area_h = screen_h - 80;
-  int board_area_w = screen_w;
+  int board_area_w = screen_w - kRightMargin;
   int usable = std::min(board_area_w, board_area_h);
   gb.cell = static_cast<float>(usable) / (size + 1);
   gb.margin = gb.cell;
   float grid_px = (size - 1) * gb.cell;
-  gb.offset_x = (screen_w - grid_px) / 2.0f;
+  gb.offset_x = (board_area_w - grid_px) / 2.0f;
   gb.offset_y = (board_area_h - grid_px) / 2.0f;
   gb.piece_r = gb.cell * 0.43f;
   gb.click_r = gb.cell * 0.45f;
@@ -61,9 +62,8 @@ void DrawGameBoard(const GameBoard& gb, const go::Board& board) {
              static_cast<int>(bot.y + pad), label_sz, DARKGRAY);
   }
   for (int row = 0; row < gb.size; row++) {
-    char buf[4];
     int num = gb.size - row;  // Row 0 is top = highest number.
-    snprintf(buf, sizeof(buf), "%d", num);
+    const char* buf = TextFormat("%d", num);
     int tw = MeasureText(buf, label_sz);
     Vector2 left = GameBoardPos(gb, row * gb.size);
     Vector2 right = GameBoardPos(gb, row * gb.size + gb.size - 1);

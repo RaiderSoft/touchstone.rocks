@@ -52,6 +52,11 @@ add_executable(touchstone
     src/main.cpp
     src/ui/game_board.cpp
     src/ui/game_mode.cpp
+    src/ui/game_settings.cpp
+    src/ui/katago_overlay.cpp
+    src/ui/board_overlay.cpp
+    src/ui/game_context.cpp
+    src/ui/game_controls.cpp
     src/chat/chat_overlay.cpp
     src/chat/ai_provider.cpp
     src/engine/katago_engine.cpp

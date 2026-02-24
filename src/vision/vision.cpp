@@ -73,6 +73,18 @@ std::vector<unsigned char> VisionSystem::GetLatestFrameCannyRGBA(
   return pixels;
 }
 
+void VisionSystem::SetBoardSize(int size) {
+  board_size_ = size;
+  black_confidence_.clear();
+  white_confidence_.clear();
+  smoothed_board_.clear();
+  if (calibration_.valid) {
+    UpdateTransform();
+  }
+}
+
+int VisionSystem::GetBoardSize() const { return board_size_; }
+
 bool VisionSystem::IsCalibrated() const { return calibration_.valid; }
 
 void VisionSystem::LoadCalibration() {

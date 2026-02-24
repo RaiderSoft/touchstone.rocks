@@ -74,11 +74,15 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  touchstone::VisionSystem vision(9);
+  auto vision_cal = touchstone::LoadCalibrationData();
+  int vision_board_size = vision_cal.valid ? vision_cal.board_size : 0;
+  touchstone::VisionSystem vision(vision_board_size > 0 ? vision_board_size : 9);
   bool vision_active = false;
-  vision.LoadCalibration();
-  if (vision.IsCalibrated()) {
-    vision_active = vision.Start(0);
+  if (vision_board_size > 0) {
+    vision.LoadCalibration();
+    if (vision.IsCalibrated()) {
+      vision_active = vision.Start(0);
+    }
   }
   touchstone::DetectionResult baseline;
   bool baseline_captured = false;
@@ -133,7 +137,7 @@ int main(int argc, char* argv[]) {
   const char* kc = std::getenv("KATAGO_CONFIG");
   katago_config.config_path = (kc && kc[0] != '\0') ? kc : "config/analysis_example.cfg";
   const char* kv = std::getenv("KATAGO_ANALYSIS_VISITS");
-  katago_config.default_max_visits = kv ? std::atoi(kv) : 200;
+  katago_config.default_max_visits = (kv && kv[0] != '\0') ? std::atoi(kv) : 200;
 
   katago::Engine katago_engine(katago_config);
   if (!katago_engine.Start()) {
@@ -286,10 +290,9 @@ int main(int argc, char* argv[]) {
         }
         DrawRectangle(bx, by, 4, BTN_H, indicator);
 
-        char label[128];
-        snprintf(label, sizeof(label), "%d. [%s] %s", i + 1,
-                 CardTypeName(deck[i].type), deck[i].id.c_str());
-        DrawText(label, bx + 14, by + 6, 18, RAYWHITE);
+        DrawText(TextFormat("%d. [%s] %s", i + 1,
+                            CardTypeName(deck[i].type), deck[i].id.c_str()),
+                 bx + 14, by + 6, 18, RAYWHITE);
         DrawText(status_icon, bx + BTN_W - 30, by + 12, 14, indicator);
 
         if (hover)
@@ -367,7 +370,6 @@ int main(int argc, char* argv[]) {
             }
           }
 
-          char status[128];
           if (stones_matched == stones_expected && errors == 0 &&
               det.board_found) {
             setup_confirm++;
@@ -377,17 +379,14 @@ int main(int argc, char* argv[]) {
               setup_confirm = 0;
               break;
             }
-            snprintf(status, sizeof(status),
-                     "[%d/%d] Board ready! Confirming...", qi + 1,
-                     (int)deck.size());
-            DrawStatus(status);
+            DrawStatus(TextFormat("[%d/%d] Board ready! Confirming...",
+                                  qi + 1, (int)deck.size()));
           } else {
             setup_confirm = 0;
-            snprintf(status, sizeof(status),
-                     "[%d/%d] Set up the board: %d/%d stones placed",
-                     qi + 1, (int)deck.size(), stones_matched,
-                     stones_expected);
-            DrawStatus(status);
+            DrawStatus(TextFormat(
+                "[%d/%d] Set up the board: %d/%d stones placed",
+                qi + 1, (int)deck.size(), stones_matched,
+                stones_expected));
           }
           break;
         }
@@ -438,11 +437,9 @@ int main(int argc, char* argv[]) {
             std::string player =
                 (card.player_to_move == go::Stone::kBlack) ? "Black"
                                                            : "White";
-            char status[128];
-            snprintf(status, sizeof(status), "%s to play.%s  [ESC=menu]",
-                     player.c_str(),
-                     card.hint.empty() ? "" : " [H=hint]");
-            DrawStatus(status);
+            DrawStatus(TextFormat("%s to play.%s  [ESC=menu]",
+                                  player.c_str(),
+                                  card.hint.empty() ? "" : " [H=hint]"));
           }
 
           if (clicked >= 0) {
