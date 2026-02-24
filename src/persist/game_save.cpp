@@ -99,6 +99,7 @@ std::string SaveGame(const std::string& path, const SaveData& data) {
   j["board_size"] = data.board_size;
   j["human_color"] = data.human_color;
   j["human_sl_profile"] = data.human_sl_profile;
+  j["komi"] = data.komi;
 
   // Move history.
   json hist = json::array();
@@ -173,6 +174,7 @@ std::string LoadGame(const std::string& path, SaveData& data) {
   data.board_size = j.at("board_size").get<int>();
   data.human_color = j.at("human_color").get<int>();
   data.human_sl_profile = j.value("human_sl_profile", "preaz_20k");
+  data.komi = j.value("komi", DefaultKomi(data.board_size));
 
   if (data.board_size != 9 && data.board_size != 13 && data.board_size != 19) {
     return "Invalid board size in save file: " +

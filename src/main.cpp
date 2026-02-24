@@ -19,6 +19,7 @@
 
 #include <curl/curl.h>
 
+#include "persist/game_save.hpp"
 #include "vision/vision.hpp"
 #include "vision/vision_dev.hpp"
 
@@ -259,6 +260,92 @@ int main(int argc, char* argv[]) {
           if (!gs.cancelled) {
             gs.setup_mode = true;
             RunGame(chat, katago_ptr, &vision, gs);
+          }
+          chat.SetSystemPrompt(kCoachPrompt);
+          chat.SetContextProvider(puzzle_context);
+          continue;
+        }
+      }
+
+      // "Load Game" button.
+      start_y += BTN_H + GAP;
+      {
+        int by = start_y;
+        Rectangle btn = {(float)bx, (float)by, (float)BTN_W, (float)BTN_H};
+        bool hover = CheckCollisionPointRec(mouse, btn);
+        Color bg = hover ? Color{60, 55, 70, 255} : Color{45, 40, 55, 255};
+        DrawRectangleRec(btn, bg);
+        DrawRectangle(bx, by, 4, BTN_H, Color{180, 140, 220, 255});
+        DrawText("Load Game", bx + 18, by + 14, 24,
+                 Color{200, 180, 255, 255});
+        if (hover)
+          DrawRectangleLinesEx(btn, 1, Color{180, 140, 220, 255});
+        if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+          EndDrawing();
+          auto saves = touchstone::ListSaves();
+          if (!saves.empty()) {
+            // Save picker loop.
+            std::string chosen_path;
+            int scroll = 0;
+            bool picking = true;
+            while (picking && !ShouldClose()) {
+              BeginDrawing();
+              ClearBackground(Color{35, 30, 25, 255});
+              int sw = GetScreenWidth();
+              int sh = GetScreenHeight();
+              const char* lt = "LOAD GAME";
+              int ltw = MeasureText(lt, 30);
+              DrawText(lt, (sw - ltw) / 2, 30, 30,
+                       Color{220, 180, 100, 255});
+
+              int lx = (sw - 480) / 2;
+              int ly = 80;
+              int max_vis = (sh - 140) / 46;
+              for (int i = scroll;
+                   i < (int)saves.size() && i < scroll + max_vis; i++) {
+                int ry = ly + (i - scroll) * 46;
+                Rectangle row = {(float)lx, (float)ry, 480, 42};
+                Vector2 mp = GetMousePosition();
+                bool rh = CheckCollisionPointRec(mp, row);
+                DrawRectangleRec(row, rh ? Color{55, 55, 65, 255}
+                                        : Color{40, 40, 48, 255});
+                DrawRectangleLinesEx(row, 1, Color{80, 80, 90, 255});
+                DrawText(saves[i].display_name.c_str(), lx + 8, ry + 4, 16,
+                         RAYWHITE);
+                DrawText(
+                    TextFormat("%dx%d  %d moves  %s", saves[i].board_size,
+                               saves[i].board_size, saves[i].move_count,
+                               saves[i].timestamp.substr(0, 10).c_str()),
+                    lx + 8, ry + 22, 12, Color{140, 140, 140, 255});
+                if (rh && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                  chosen_path = saves[i].filepath;
+                  picking = false;
+                }
+              }
+              int wheel = (int)GetMouseWheelMove();
+              if (wheel != 0) {
+                scroll -= wheel;
+                if (scroll < 0) scroll = 0;
+                int ms = std::max(0, (int)saves.size() - max_vis);
+                if (scroll > ms) scroll = ms;
+              }
+              DrawText("ESC to cancel", lx, sh - 30, 14, GRAY);
+              if (IsKeyPressed(KEY_ESCAPE)) picking = false;
+              EndDrawing();
+            }
+            if (!chosen_path.empty()) {
+              touchstone::SaveData sd;
+              std::string err = touchstone::LoadGame(chosen_path, sd);
+              if (err.empty()) {
+                GameSettings gs;
+                gs.board_size = sd.board_size;
+                gs.human_color = static_cast<go::Stone>(sd.human_color);
+                gs.human_sl_profile = sd.human_sl_profile;
+                gs.komi = sd.komi;
+                gs.load_save_path = chosen_path;
+                RunGame(chat, katago_ptr, &vision, gs);
+              }
+            }
           }
           chat.SetSystemPrompt(kCoachPrompt);
           chat.SetContextProvider(puzzle_context);

@@ -80,8 +80,11 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
   int scr_h = GetScreenHeight();
   GameBoard gb = CalcGameBoard(BOARD_SZ, scr_w, scr_h);
 
-  // Tell KataGo the board size for this game.
-  if (katago) katago->SetBoardSize(BOARD_SZ);
+  // Tell KataGo the board size and komi for this game.
+  if (katago) {
+    katago->SetBoardSize(BOARD_SZ);
+    katago->SetKomi(settings.komi);
+  }
 
   enum class GP {
     kSetup,
@@ -185,6 +188,7 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
     sd.board_size = BOARD_SZ;
     sd.human_color = static_cast<int>(human_color);
     sd.human_sl_profile = settings.human_sl_profile;
+    sd.komi = settings.komi;
     sd.move_history = move_history;
     sd.move_log = move_log;
     sd.prev_winrate = prev_winrate;
@@ -269,6 +273,7 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
     // Re-sync KataGo.
     if (katago && katago->IsRunning()) {
       katago->SetBoardSize(sd.board_size);
+      katago->SetKomi(sd.komi);
       katago->SetHumanSLProfile(sd.human_sl_profile);
       katago->RequestAnalysis(move_history,
                               static_cast<int>(move_history.size()));
@@ -295,6 +300,18 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
   } else {
     fprintf(stderr, "KataGo: NOT requesting initial analysis (katago=%p, running=%d)\n",
             (void*)katago, katago ? katago->IsRunning() : false);
+  }
+
+  // Auto-load a save if requested from the main menu.
+  if (!settings.load_save_path.empty()) {
+    touchstone::SaveData sd;
+    std::string err = touchstone::LoadGame(settings.load_save_path, sd);
+    if (err.empty()) {
+      err = RestoreFromSave(sd);
+    }
+    if (!err.empty()) {
+      fprintf(stderr, "Load failed: %s\n", err.c_str());
+    }
   }
 
   // Mic + speaker + winrate button positions (top-right of screen).
@@ -1406,6 +1423,7 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
   }
 
 done:
+  if (IsWindowFullscreen()) ToggleFullscreen();
   CloseWindow();
   InitGoBoard(9);
   MoveToSecondMonitor();

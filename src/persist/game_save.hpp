@@ -26,6 +26,7 @@ struct SaveData {
   int board_size;
   int human_color;                   // 1=Black, 2=White
   std::string human_sl_profile;
+  double komi;
 
   std::vector<katago::HistoryMove> move_history;
   std::vector<MoveRecord> move_log;

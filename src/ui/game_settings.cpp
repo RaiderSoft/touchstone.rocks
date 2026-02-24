@@ -128,7 +128,55 @@ GameSettings RunGameSettings(ChatOverlay& chat) {
                  sel ? Color{180, 255, 180, 255} : RAYWHITE);
         if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
           settings.board_size = kSizes[i];
+          settings.komi = DefaultKomi(kSizes[i]);
         }
+      }
+    }
+    y += 38 + 40;
+
+    // --- Komi ---
+    DrawText("Komi:", cx - 170, y, 22, RAYWHITE);
+    y += 36;
+
+    {
+      const int KOMI_BTN_SZ = 38;
+      const int KOMI_GAP = 12;
+      // Layout: [ - ]  7.5  [ + ]
+      int total_w = KOMI_BTN_SZ * 2 + KOMI_GAP * 2 + 60;  // 60 for number
+      int kx = cx - total_w / 2;
+
+      // Minus button.
+      Rectangle minus_btn = {(float)kx, (float)y, (float)KOMI_BTN_SZ,
+                              (float)KOMI_BTN_SZ};
+      bool m_hover = CheckCollisionPointRec(mouse, minus_btn);
+      DrawRectangleRec(minus_btn, m_hover ? Color{70, 50, 50, 255}
+                                          : Color{50, 50, 50, 255});
+      DrawRectangleLinesEx(minus_btn, 1, Color{180, 100, 100, 255});
+      int mw = MeasureText("-", 22);
+      DrawText("-", kx + (KOMI_BTN_SZ - mw) / 2, y + 8, 22, RAYWHITE);
+      if (m_hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        settings.komi -= 0.5;
+      }
+
+      // Value display.
+      int vx = kx + KOMI_BTN_SZ + KOMI_GAP;
+      const char* komi_str = TextFormat("%.1f", settings.komi);
+      int kw = MeasureText(komi_str, 22);
+      DrawText(komi_str, vx + (60 - kw) / 2, y + 8, 22,
+               Color{220, 220, 180, 255});
+
+      // Plus button.
+      int px = vx + 60 + KOMI_GAP;
+      Rectangle plus_btn = {(float)px, (float)y, (float)KOMI_BTN_SZ,
+                             (float)KOMI_BTN_SZ};
+      bool p_hover = CheckCollisionPointRec(mouse, plus_btn);
+      DrawRectangleRec(plus_btn, p_hover ? Color{50, 70, 50, 255}
+                                         : Color{50, 50, 50, 255});
+      DrawRectangleLinesEx(plus_btn, 1, Color{100, 180, 100, 255});
+      int pw = MeasureText("+", 22);
+      DrawText("+", px + (KOMI_BTN_SZ - pw) / 2, y + 8, 22, RAYWHITE);
+      if (p_hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        settings.komi += 0.5;
       }
     }
     y += 38 + 40;

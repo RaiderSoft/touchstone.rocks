@@ -8,12 +8,21 @@
 #include "engine/katago_engine.hpp"
 #include "vision/vision.hpp"
 
+// Default komi by board size: 9x9=5.5, 13x13=6.5, 19x19=7.5.
+inline double DefaultKomi(int board_size) {
+  if (board_size <= 9) return 5.5;
+  if (board_size <= 13) return 6.5;
+  return 7.5;
+}
+
 struct GameSettings {
   go::Stone human_color = go::Stone::kBlack;
   std::string human_sl_profile = "preaz_20k";
   int board_size = 13;
+  double komi = DefaultKomi(13);
   bool setup_mode = false;
   bool cancelled = false;
+  std::string load_save_path;  // If non-empty, load this save on game start.
 };
 
 // Per-move analysis history for chat context and save/load.

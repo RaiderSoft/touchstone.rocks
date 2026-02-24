@@ -253,6 +253,10 @@ void Engine::SetBoardSize(int size) {
   config_.board_size = size;
 }
 
+void Engine::SetKomi(double komi) {
+  config_.komi = komi;
+}
+
 std::string Engine::AllocateId(const std::string& prefix) {
   return prefix + "_" + std::to_string(next_query_id_++);
 }
