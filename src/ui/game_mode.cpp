@@ -111,6 +111,9 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
             vision->GetBoardSize(), vision->GetBoardSize(), BOARD_SZ, BOARD_SZ);
     vision_active = false;
   }
+  if (vision_active) {
+    vision->ResetDetection();
+  }
   int pending_pos = -1;
   int detect_pos = -1;
   int detect_confirm = 0;

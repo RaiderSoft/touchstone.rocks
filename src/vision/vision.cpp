@@ -73,6 +73,14 @@ std::vector<unsigned char> VisionSystem::GetLatestFrameCannyRGBA(
   return pixels;
 }
 
+void VisionSystem::ResetDetection() {
+  std::lock_guard<std::mutex> lock(mtx_);
+  black_confidence_.clear();
+  white_confidence_.clear();
+  smoothed_board_.clear();
+  latest_detection_ = DetectionResult{};
+}
+
 void VisionSystem::SetBoardSize(int size) {
   board_size_ = size;
   black_confidence_.clear();

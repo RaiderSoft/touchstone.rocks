@@ -198,21 +198,21 @@ int main(int argc, char* argv[]) {
       BeginDrawing();
       ClearBackground(Color{35, 30, 25, 255});
 
-      const int TITLE_Y = 20;
+      const int TITLE_Y = 30;
       const char* title = "touchstone.rocks";
-      int tw = MeasureText(title, 40);
-      DrawText(title, (GetScreenWidth() - tw) / 2, TITLE_Y, 40,
+      int tw = MeasureText(title, 56);
+      DrawText(title, (GetScreenWidth() - tw) / 2, TITLE_Y, 56,
                Color{220, 180, 100, 255});
 
       const char* subtitle = "Select an option";
-      int sw = MeasureText(subtitle, 20);
-      DrawText(subtitle, (GetScreenWidth() - sw) / 2, TITLE_Y + 48, 20,
+      int sw = MeasureText(subtitle, 24);
+      DrawText(subtitle, (GetScreenWidth() - sw) / 2, TITLE_Y + 68, 24,
                GRAY);
 
-      const int BTN_W = 360;
-      const int BTN_H = 40;
-      const int GAP = 8;
-      int start_y = TITLE_Y + 90;
+      const int BTN_W = 480;
+      const int BTN_H = 54;
+      const int GAP = 10;
+      int start_y = TITLE_Y + 120;
       int bx = (GetScreenWidth() - BTN_W) / 2;
       Vector2 mouse = GetMousePosition();
 
@@ -224,7 +224,7 @@ int main(int argc, char* argv[]) {
         Color bg = hover ? Color{55, 70, 55, 255} : Color{40, 55, 40, 255};
         DrawRectangleRec(btn, bg);
         DrawRectangle(bx, by, 4, BTN_H, Color{100, 200, 100, 255});
-        DrawText("Play vs Computer", bx + 14, by + 10, 18,
+        DrawText("Play vs Computer", bx + 18, by + 14, 24,
                  Color{180, 255, 180, 255});
         if (hover)
           DrawRectangleLinesEx(btn, 1, Color{100, 200, 100, 255});
@@ -249,7 +249,7 @@ int main(int argc, char* argv[]) {
         Color bg = hover ? Color{55, 55, 70, 255} : Color{40, 40, 55, 255};
         DrawRectangleRec(btn, bg);
         DrawRectangle(bx, by, 4, BTN_H, Color{100, 140, 220, 255});
-        DrawText("Play from Position", bx + 14, by + 10, 18,
+        DrawText("Play from Position", bx + 18, by + 14, 24,
                  Color{160, 190, 255, 255});
         if (hover)
           DrawRectangleLinesEx(btn, 1, Color{100, 140, 220, 255});
@@ -268,8 +268,8 @@ int main(int argc, char* argv[]) {
 
       // Puzzle list.
       start_y += BTN_H + GAP * 3;
-      DrawText("PUZZLES", bx, start_y - 4, 14, GRAY);
-      start_y += 20;
+      DrawText("PUZZLES", bx, start_y - 4, 18, GRAY);
+      start_y += 26;
 
       for (int i = 0; i < static_cast<int>(deck.size()); i++) {
         int by = start_y + i * (BTN_H + GAP);
@@ -292,8 +292,8 @@ int main(int argc, char* argv[]) {
 
         DrawText(TextFormat("%d. [%s] %s", i + 1,
                             CardTypeName(deck[i].type), deck[i].id.c_str()),
-                 bx + 14, by + 6, 18, RAYWHITE);
-        DrawText(status_icon, bx + BTN_W - 30, by + 12, 14, indicator);
+                 bx + 18, by + 14, 22, RAYWHITE);
+        DrawText(status_icon, bx + BTN_W - 40, by + 16, 18, indicator);
 
         if (hover)
           DrawRectangleLinesEx(btn, 1, Color{220, 180, 100, 255});
