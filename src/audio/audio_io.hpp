@@ -10,7 +10,7 @@
 namespace audio {
 
 // ---------------------------------------------------------------------------
-// AudioCapture — microphone recording via macOS AudioQueue (PIMPL)
+// AudioCapture — microphone recording (AudioQueue on macOS, ALSA on Linux)
 // ---------------------------------------------------------------------------
 
 class AudioCapture {
