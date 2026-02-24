@@ -131,8 +131,7 @@ int main(int argc, char* argv[]) {
   const char* khm = std::getenv("KATAGO_HUMAN_MODEL");
   katago_config.human_model_path = khm ? khm : km;  // Default: same as model.
   const char* kc = std::getenv("KATAGO_CONFIG");
-  katago_config.config_path =
-      kc ? kc : "/opt/homebrew/share/katago/configs/analysis_example.cfg";
+  katago_config.config_path = (kc && kc[0] != '\0') ? kc : "config/analysis_example.cfg";
   const char* kv = std::getenv("KATAGO_ANALYSIS_VISITS");
   katago_config.default_max_visits = kv ? std::atoi(kv) : 200;
 

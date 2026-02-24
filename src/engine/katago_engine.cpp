@@ -97,10 +97,21 @@ bool Engine::Start() {
 
     // Let KataGo's stderr pass through so we can see errors.
 
-    execlp(config_.katago_path.c_str(), "katago", "analysis", "-config",
-           config_.config_path.c_str(), "-model",
-           config_.model_path.c_str(), "-human-model",
-           config_.human_model_path.c_str(), nullptr);
+    // Build argv dynamically so -config is only passed when set.
+    std::vector<const char*> argv;
+    argv.push_back("katago");
+    argv.push_back("analysis");
+    if (!config_.config_path.empty()) {
+      argv.push_back("-config");
+      argv.push_back(config_.config_path.c_str());
+    }
+    argv.push_back("-model");
+    argv.push_back(config_.model_path.c_str());
+    argv.push_back("-human-model");
+    argv.push_back(config_.human_model_path.c_str());
+    argv.push_back(nullptr);
+    execvp(config_.katago_path.c_str(),
+           const_cast<char* const*>(argv.data()));
     _exit(1);  // exec failed
   }
 
@@ -144,11 +155,11 @@ bool Engine::Start() {
     rem -= n;
   }
 
-  // Block-read response with 15s timeout (model loading can be slow).
+  // Block-read response with 120s timeout (OpenCL autotuning can take minutes).
   std::string buf;
   char chunk[4096];
   auto deadline =
-      std::chrono::steady_clock::now() + std::chrono::seconds(15);
+      std::chrono::steady_clock::now() + std::chrono::seconds(120);
   bool probe_ok = false;
 
   while (std::chrono::steady_clock::now() < deadline) {

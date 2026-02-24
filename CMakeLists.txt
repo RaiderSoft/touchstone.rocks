@@ -63,7 +63,13 @@ add_executable(touchstone
     cards/card_data.cpp
 )
 target_include_directories(touchstone PRIVATE include cards src)
-target_link_libraries(touchstone PRIVATE go_engine board_lib CURL::libcurl nlohmann_json::nlohmann_json "-framework AudioToolbox")
+target_link_libraries(touchstone PRIVATE go_engine board_lib CURL::libcurl nlohmann_json::nlohmann_json)
+if(APPLE)
+    target_link_libraries(touchstone PRIVATE "-framework AudioToolbox")
+elseif(UNIX)
+    find_package(ALSA REQUIRED)
+    target_link_libraries(touchstone PRIVATE ALSA::ALSA)
+endif()
 
 # OpenCV vision component for camera-based board detection
 find_package(OpenCV REQUIRED COMPONENTS core imgproc videoio)

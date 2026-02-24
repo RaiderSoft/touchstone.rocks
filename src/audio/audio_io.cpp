@@ -3,15 +3,17 @@
 #include "audio/audio_encoding.hpp"
 #include "raylib.h"
 
-#include <AudioToolbox/AudioToolbox.h>
-
 #include <cstdio>
 
-namespace audio {
+// ---------------------------------------------------------------------------
+// Platform-specific AudioCapture implementations
+// ---------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------------
-// AudioCapture — PIMPL detail
-// ---------------------------------------------------------------------------
+#if defined(__APPLE__)
+
+#include <AudioToolbox/AudioToolbox.h>
+
+namespace audio {
 
 static constexpr int kNumBuffers = 3;
 static constexpr int kBufferFrames = 4096;
@@ -118,6 +120,119 @@ void AudioCapture::Stop() {
     AudioQueueStop(impl_->queue, true);
   }
 }
+
+#elif defined(__linux__)
+
+#include <alsa/asoundlib.h>
+
+#include <algorithm>
+#include <thread>
+
+namespace audio {
+
+static constexpr int kCaptureFrames = 1024;
+
+struct AudioCapture::Impl {
+  snd_pcm_t* pcm = nullptr;
+  std::thread capture_thread;
+};
+
+AudioCapture::AudioCapture() : impl_(std::make_unique<Impl>()) {}
+
+AudioCapture::~AudioCapture() {
+  Stop();
+  if (impl_->pcm != nullptr) {
+    snd_pcm_close(impl_->pcm);
+  }
+}
+
+bool AudioCapture::Init() {
+  int err = snd_pcm_open(&impl_->pcm, "default", SND_PCM_STREAM_CAPTURE, 0);
+  if (err < 0) {
+    fprintf(stderr, "AudioCapture: snd_pcm_open failed: %s\n",
+            snd_strerror(err));
+    return false;
+  }
+
+  err = snd_pcm_set_params(impl_->pcm, SND_PCM_FORMAT_S16_LE,
+                           SND_PCM_ACCESS_RW_INTERLEAVED, kChannels,
+                           kSampleRate, 1 /* allow resampling */,
+                           100000 /* 100ms latency */);
+  if (err < 0) {
+    fprintf(stderr, "AudioCapture: snd_pcm_set_params failed: %s\n",
+            snd_strerror(err));
+    snd_pcm_close(impl_->pcm);
+    impl_->pcm = nullptr;
+    return false;
+  }
+
+  initialized_ = true;
+  return true;
+}
+
+bool AudioCapture::Start() {
+  if (!initialized_ || impl_->pcm == nullptr) {
+    return false;
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(buffer_mutex_);
+    samples_.clear();
+  }
+
+  is_recording_ = true;
+
+  impl_->capture_thread = std::thread([this]() {
+    std::vector<int16_t> buf(kCaptureFrames * kChannels);
+
+    while (is_recording_) {
+      snd_pcm_sframes_t n =
+          snd_pcm_readi(impl_->pcm, buf.data(), kCaptureFrames);
+      if (n < 0) {
+        n = snd_pcm_recover(impl_->pcm, static_cast<int>(n), /*silent=*/1);
+        if (n < 0) {
+          break;
+        }
+        continue;
+      }
+
+      std::lock_guard<std::mutex> lock(buffer_mutex_);
+      size_t max_samples =
+          static_cast<size_t>(kSampleRate * kMaxSeconds) * kChannels;
+      size_t count = static_cast<size_t>(n) * kChannels;
+      size_t room = (samples_.size() < max_samples)
+                        ? max_samples - samples_.size()
+                        : 0;
+      size_t to_copy = std::min(count, room);
+      if (to_copy > 0) {
+        samples_.insert(samples_.end(), buf.data(), buf.data() + to_copy);
+      }
+    }
+  });
+
+  return true;
+}
+
+void AudioCapture::Stop() {
+  if (!is_recording_) {
+    return;
+  }
+  is_recording_ = false;
+  if (impl_->pcm != nullptr) {
+    snd_pcm_drop(impl_->pcm);  // Unblocks snd_pcm_readi in capture thread
+  }
+  if (impl_->capture_thread.joinable()) {
+    impl_->capture_thread.join();
+  }
+}
+
+#else
+#error "Unsupported platform for AudioCapture"
+#endif
+
+// ---------------------------------------------------------------------------
+// Shared across platforms
+// ---------------------------------------------------------------------------
 
 std::vector<uint8_t> AudioCapture::GetRecordedWAV() {
   std::lock_guard<std::mutex> lock(buffer_mutex_);

@@ -38,7 +38,16 @@ int Load(const std::string& path) {
     if (eq == std::string::npos) continue;
 
     std::string key = Trim(line.substr(0, eq));
-    std::string value = Trim(line.substr(eq + 1));
+    std::string raw_value = line.substr(eq + 1);
+
+    // Strip inline comments (# preceded by whitespace), but not inside quotes.
+    if (!raw_value.empty() && raw_value.front() != '"' && raw_value.front() != '\'') {
+      auto hash = raw_value.find(" #");
+      if (hash == std::string::npos) hash = raw_value.find("\t#");
+      if (hash != std::string::npos) raw_value = raw_value.substr(0, hash);
+    }
+
+    std::string value = Trim(raw_value);
     value = Unquote(value);
 
     if (key.empty()) continue;
