@@ -668,26 +668,41 @@ std::vector<std::string> ChatOverlay::WrapText(const std::string& text,
     return lines;
   }
 
-  std::string remaining = text;
-  while (!remaining.empty()) {
-    int fit = static_cast<int>(remaining.size());
-    while (fit > 0 &&
-           ChatMeasureText(remaining.substr(0, fit).c_str(), kFontSize) >
-               max_width) {
-      int space = static_cast<int>(remaining.rfind(' ', fit - 1));
-      if (space <= 0) {
-        fit--;
-      } else {
-        fit = space;
-      }
-    }
-    if (fit <= 0) fit = 1;
+  // Split on newlines first, then wrap each paragraph by pixel width.
+  std::string::size_type start = 0;
+  while (start <= text.size()) {
+    auto nl = text.find('\n', start);
+    std::string paragraph = (nl == std::string::npos)
+                                ? text.substr(start)
+                                : text.substr(start, nl - start);
+    start = (nl == std::string::npos) ? text.size() + 1 : nl + 1;
 
-    lines.push_back(remaining.substr(0, fit));
-    if (fit < static_cast<int>(remaining.size()) && remaining[fit] == ' ') {
-      fit++;
+    if (paragraph.empty()) {
+      lines.push_back("");
+      continue;
     }
-    remaining = remaining.substr(fit);
+
+    std::string remaining = paragraph;
+    while (!remaining.empty()) {
+      int fit = static_cast<int>(remaining.size());
+      while (fit > 0 &&
+             ChatMeasureText(remaining.substr(0, fit).c_str(), kFontSize) >
+                 max_width) {
+        int space = static_cast<int>(remaining.rfind(' ', fit - 1));
+        if (space <= 0) {
+          fit--;
+        } else {
+          fit = space;
+        }
+      }
+      if (fit <= 0) fit = 1;
+
+      lines.push_back(remaining.substr(0, fit));
+      if (fit < static_cast<int>(remaining.size()) && remaining[fit] == ' ') {
+        fit++;
+      }
+      remaining = remaining.substr(fit);
+    }
   }
 
   if (lines.empty()) lines.push_back("");
