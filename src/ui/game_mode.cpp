@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "board.hpp"
+#include "boardgame/board.hpp"
 #include "ui/board_overlay.hpp"
 #include "ui/game_board.hpp"
 #include "ui/game_context.hpp"
@@ -42,21 +42,6 @@ static void RecordAndAnalyze(std::vector<katago::HistoryMove>& history,
 
 void RunGame(ChatOverlay& chat, katago::Engine* katago,
              touchstone::VisionSystem* vision, const GameSettings& settings) {
-  int mon_count = GetMonitorCount();
-  int target_mon = (mon_count > 1) ? 1 : 0;
-
-  CloseBoard();
-
-  SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-  InitWindow(1280, 720, "Touchstone");
-  SetWindowMonitor(target_mon);
-  MaximizeWindow();
-  SetTargetFPS(60);
-  SetExitKey(0);
-
-  // Reload chat font after new window (OpenGL context changed).
-  chat.LoadChatFont("fonts/Inter-Regular.ttf");
-
   // In-character opponent persona for the game.
   chat.SetSystemPrompt(
       "You are a friendly and encouraging Go teacher playing a teaching game "
@@ -1429,10 +1414,5 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
   }
 
 done:
-  if (IsWindowFullscreen()) ToggleFullscreen();
-  CloseWindow();
-  InitGoBoard(9);
-  MoveToSecondMonitor();
-  // Reload chat font after returning to puzzle window (new OpenGL context).
-  chat.LoadChatFont("fonts/Inter-Regular.ttf");
+  SetupGoBoard(9);
 }

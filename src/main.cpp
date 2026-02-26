@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "board.hpp"
+#include "boardgame/board.hpp"
 #include "cards.hpp"
 #include "chat/chat_overlay.hpp"
 #include "persist/dotenv.hpp"
@@ -88,11 +88,14 @@ int main(int argc, char* argv[]) {
   touchstone::DetectionResult baseline;
   bool baseline_captured = false;
 
-  enum class Phase { kMenu, kSetup, kShowPuzzle, kCorrect, kIncorrect, kHint };
+  enum class Phase {
+    kMenu, kPuzzleList, kSetup, kShowPuzzle, kCorrect, kIncorrect, kHint
+  };
 
   int qi = -1;
   int last_clicked = -1;
   Phase phase = Phase::kMenu;
+  int puzzle_scroll = 0;
   int setup_confirm = 0;
   const int SETUP_CONFIRM_NEEDED = 10;
   int removal_confirm = 0;
@@ -149,7 +152,12 @@ int main(int argc, char* argv[]) {
   fprintf(stderr, "KataGo engine ready.\n");
   katago::Engine* katago_ptr = &katago_engine;
 
-  InitGoBoard(9);
+  SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+  InitWindow(1280, 720, "Touchstone");
+  MaximizeWindow();
+  SetTargetFPS(60);
+  SetExitKey(0);
+  SetupGoBoard(9);
   InitAudioDevice();
   MoveToSecondMonitor();
 
@@ -192,6 +200,9 @@ int main(int argc, char* argv[]) {
   // -----------------------------------------------------------------------
 
   while (!ShouldClose()) {
+    if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
+    if (IsWindowResized()) SetupGoBoard(9);
+
     // --- Menu phase ---
     if (phase == Phase::kMenu) {
       bool chat_consumed = chat.HandleInput();
@@ -199,7 +210,8 @@ int main(int argc, char* argv[]) {
       BeginDrawing();
       ClearBackground(Color{35, 30, 25, 255});
 
-      const int TITLE_Y = 30;
+      int scr_h = GetScreenHeight();
+      const int TITLE_Y = scr_h / 6;
       const char* title = "touchstone.rocks";
       int tw = MeasureText(title, 56);
       DrawText(title, (GetScreenWidth() - tw) / 2, TITLE_Y, 56,
@@ -353,14 +365,77 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      // Puzzle list.
-      start_y += BTN_H + GAP * 3;
-      DrawText("PUZZLES", bx, start_y - 4, 18, GRAY);
-      start_y += 26;
-
-      for (int i = 0; i < static_cast<int>(deck.size()); i++) {
-        int by = start_y + i * (BTN_H + GAP);
+      // "Puzzles" button.
+      start_y += BTN_H + GAP;
+      {
+        int by = start_y;
         Rectangle btn = {(float)bx, (float)by, (float)BTN_W, (float)BTN_H};
+        bool hover = CheckCollisionPointRec(mouse, btn);
+        Color bg = hover ? Color{70, 65, 55, 255} : Color{50, 45, 38, 255};
+        DrawRectangleRec(btn, bg);
+        DrawRectangle(bx, by, 4, BTN_H, Color{220, 180, 100, 255});
+        DrawText("Puzzles", bx + 18, by + 14, 24,
+                 Color{255, 220, 140, 255});
+        if (hover)
+          DrawRectangleLinesEx(btn, 1, Color{220, 180, 100, 255});
+        if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+          puzzle_scroll = 0;
+          phase = Phase::kPuzzleList;
+        }
+      }
+
+      // "Exit" button.
+      start_y += BTN_H + GAP * 4;
+      {
+        int by = start_y;
+        Rectangle btn = {(float)bx, (float)by, (float)BTN_W, (float)BTN_H};
+        bool hover = CheckCollisionPointRec(mouse, btn);
+        Color bg = hover ? Color{70, 45, 45, 255} : Color{50, 38, 38, 255};
+        DrawRectangleRec(btn, bg);
+        DrawRectangle(bx, by, 4, BTN_H, Color{180, 80, 80, 255});
+        DrawText("Exit", bx + 18, by + 14, 24,
+                 Color{255, 140, 140, 255});
+        if (hover)
+          DrawRectangleLinesEx(btn, 1, Color{180, 80, 80, 255});
+        if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+          EndDrawing();
+          break;
+        }
+      }
+
+      chat.Draw(GetScreenWidth(), GetScreenHeight());
+      EndDrawing();
+      continue;
+    }
+
+    // --- Puzzle browser ---
+    if (phase == Phase::kPuzzleList) {
+      bool chat_consumed = chat.HandleInput();
+
+      BeginDrawing();
+      ClearBackground(Color{35, 30, 25, 255});
+
+      int scr_w = GetScreenWidth();
+      int scr_h = GetScreenHeight();
+
+      const char* title = "PUZZLES";
+      int title_w = MeasureText(title, 30);
+      DrawText(title, (scr_w - title_w) / 2, 30, 30,
+               Color{220, 180, 100, 255});
+
+      const int BTN_W = 480;
+      const int BTN_H = 54;
+      const int GAP = 10;
+      int lx = (scr_w - BTN_W) / 2;
+      int ly = 80;
+      int max_vis = (scr_h - 140) / (BTN_H + GAP);
+      if (max_vis < 1) max_vis = 1;
+      Vector2 mouse = GetMousePosition();
+
+      for (int i = puzzle_scroll;
+           i < (int)deck.size() && i < puzzle_scroll + max_vis; i++) {
+        int by = ly + (i - puzzle_scroll) * (BTN_H + GAP);
+        Rectangle btn = {(float)lx, (float)by, (float)BTN_W, (float)BTN_H};
         bool hover = CheckCollisionPointRec(mouse, btn);
 
         Color bg = hover ? Color{70, 65, 55, 255} : Color{50, 45, 38, 255};
@@ -375,12 +450,12 @@ int main(int argc, char* argv[]) {
           indicator = RED;
           status_icon = "X";
         }
-        DrawRectangle(bx, by, 4, BTN_H, indicator);
+        DrawRectangle(lx, by, 4, BTN_H, indicator);
 
         DrawText(TextFormat("%d. [%s] %s", i + 1,
                             CardTypeName(deck[i].type), deck[i].id.c_str()),
-                 bx + 18, by + 14, 22, RAYWHITE);
-        DrawText(status_icon, bx + BTN_W - 40, by + 16, 18, indicator);
+                 lx + 18, by + 14, 22, RAYWHITE);
+        DrawText(status_icon, lx + BTN_W - 40, by + 16, 18, indicator);
 
         if (hover)
           DrawRectangleLinesEx(btn, 1, Color{220, 180, 100, 255});
@@ -396,7 +471,20 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      chat.Draw(GetScreenWidth(), GetScreenHeight());
+      int wheel = (int)GetMouseWheelMove();
+      if (wheel != 0) {
+        puzzle_scroll -= wheel;
+        if (puzzle_scroll < 0) puzzle_scroll = 0;
+        int ms = std::max(0, (int)deck.size() - max_vis);
+        if (puzzle_scroll > ms) puzzle_scroll = ms;
+      }
+
+      DrawText("ESC to go back", lx, scr_h - 30, 14, GRAY);
+      if (!chat_consumed && IsKeyPressed(KEY_ESCAPE)) {
+        phase = Phase::kMenu;
+      }
+
+      chat.Draw(scr_w, scr_h);
       EndDrawing();
       continue;
     }

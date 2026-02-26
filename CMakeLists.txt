@@ -16,15 +16,20 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# Download board library (provides board_lib target + raylib)
+# Download raylib for rendering
 FetchContent_Declare(
-    boardgame
-    GIT_REPOSITORY https://github.com/cs257w26/boardgame.git
-    GIT_TAG dev
+    raylib
+    GIT_REPOSITORY https://github.com/raysan5/raylib.git
+    GIT_TAG 5.5
     GIT_SHALLOW TRUE
 )
-set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(boardgame)
+FetchContent_MakeAvailable(raylib)
+
+# Board rendering and menu UI
+add_library(board_lib src/boardgame/board.cpp src/boardgame/menu.cpp)
+set_target_properties(board_lib PROPERTIES CXX_STANDARD 17)
+target_include_directories(board_lib PUBLIC src/boardgame)
+target_link_libraries(board_lib PUBLIC raylib)
 
 # Download nlohmann/json for Anthropic API client
 FetchContent_Declare(
