@@ -111,6 +111,11 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
   int computer_move_pos = -1;
   int place_confirm = 0;
   const int PLACE_NEEDED = 5;
+  double pending_timer = 0.0;  // Seconds pending_pos has been stable.
+  float auto_confirm_secs = 0.0f;
+  if (vision_active) {
+    auto_confirm_secs = vision->GetCalibration().auto_confirm_seconds;
+  }
   int announce_move = -2;  // Move pending TTS announcement (-2 = none).
 
   std::vector<go::Territory> territories;
@@ -986,6 +991,21 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
             }
             DrawCircleLines(pp.x, pp.y, gb.piece_r + 3, GREEN);
 
+            // Countdown pie overlay (fills clockwise from top).
+            if (auto_confirm_secs > 0) {
+              float progress = (float)pending_timer / auto_confirm_secs;
+              if (progress > 1.0f) progress = 1.0f;
+              // DrawCircleSector uses angles where 0=right, so start
+              // at -90 (top) and sweep clockwise by progress * 360.
+              float start_angle = -90.0f;
+              float end_angle = start_angle + progress * 360.0f;
+              float pie_r = gb.piece_r + 2;
+              DrawCircleSector({pp.x, pp.y}, pie_r, start_angle, end_angle,
+                               36, Color{100, 220, 100, 100});
+              DrawCircleSectorLines({pp.x, pp.y}, pie_r, start_angle,
+                                    end_angle, 36, Color{100, 220, 100, 200});
+            }
+
             auto det = vision->GetLatestDetection();
             auto expected_vision_color =
                 (human_color == go::Stone::kBlack)
@@ -998,12 +1018,26 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
 
             if (!still_there) {
               pending_pos = -1;
+              pending_timer = 0.0;
             } else {
+              pending_timer += GetFrameTime();
               showing_confirm = true;
-              DrawGameStatus(
-                  gb, "Move detected. Press SPACE to confirm.  [ESC=quit]");
 
-              if (IsKeyPressed(KEY_SPACE)) {
+              bool auto_confirmed =
+                  auto_confirm_secs > 0 && pending_timer >= auto_confirm_secs;
+
+              if (auto_confirm_secs > 0) {
+                float remaining = auto_confirm_secs - (float)pending_timer;
+                if (remaining < 0) remaining = 0;
+                DrawGameStatus(
+                    gb, TextFormat("Move detected. Auto-confirm in %.1fs  "
+                                   "[SPACE=now]  [ESC=quit]", remaining));
+              } else {
+                DrawGameStatus(
+                    gb, "Move detected. Press SPACE to confirm.  [ESC=quit]");
+              }
+
+              if (IsKeyPressed(KEY_SPACE) || auto_confirmed) {
                 // Save undo snapshot before playing.
                 GameSnapshot snap = {game, move_history,
                     move_log, prev_winrate,
@@ -1039,6 +1073,7 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
                   katago_move_requested = false;
                 }
                 pending_pos = -1;
+                pending_timer = 0.0;
                 detect_pos = -1;
                 detect_confirm = 0;
               }
@@ -1097,6 +1132,7 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
                                                   game.PreviousBoard());
                       if (vr == go::MoveResult::kOk) {
                         pending_pos = new_pos;
+                        pending_timer = 0.0;
                       }
                       detect_pos = -1;
                       detect_confirm = 0;

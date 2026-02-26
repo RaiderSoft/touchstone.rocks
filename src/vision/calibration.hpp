@@ -20,6 +20,10 @@ struct CalibrationData {
   // Board size this calibration was created for (9 or 13).
   int board_size = 9;
 
+  // Auto-confirm delay: seconds a detected move must persist before
+  // it is played automatically (0 = disabled, require SPACE).
+  float auto_confirm_seconds = 3.0f;
+
   bool valid = false;
 };
 

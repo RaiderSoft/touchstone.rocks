@@ -18,8 +18,8 @@ inline double DefaultKomi(int board_size) {
 struct GameSettings {
   go::Stone human_color = go::Stone::kBlack;
   std::string human_sl_profile = "preaz_20k";
-  int board_size = 13;
-  double komi = DefaultKomi(13);
+  int board_size = 9;
+  double komi = DefaultKomi(9);
   bool setup_mode = false;
   bool cancelled = false;
   std::string load_save_path;  // If non-empty, load this save on game start.
@@ -58,9 +58,14 @@ struct GameSnapshot {
   std::string top3;
 };
 
-// Shows a pre-game settings screen. Returns settings with cancelled=true
-// if the user backs out.
-GameSettings RunGameSettings(ChatOverlay& chat);
+// Result of a single frame of the settings screen.
+enum class SettingsAction { kNone, kStart, kCancel };
+
+// Draws one frame of the settings screen. Caller owns the loop.
+// selected_preset is persistent state across frames.
+// If vision_board_size > 0, board size is locked to that value.
+SettingsAction DrawGameSettings(GameSettings& settings, int& selected_preset,
+                                bool chat_consumed, int vision_board_size = 0);
 
 void RunGame(ChatOverlay& chat, katago::Engine* katago,
              touchstone::VisionSystem* vision, const GameSettings& settings);

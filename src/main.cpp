@@ -90,7 +90,8 @@ int main(int argc, char* argv[]) {
   bool baseline_captured = false;
 
   enum class Phase {
-    kMenu, kPuzzleList, kSetup, kShowPuzzle, kCorrect, kIncorrect, kHint
+    kMenu, kGameSettings, kLoadGame, kPuzzleList,
+    kSetup, kShowPuzzle, kCorrect, kIncorrect, kHint
   };
 
   int qi = -1;
@@ -101,6 +102,15 @@ int main(int argc, char* argv[]) {
   const int SETUP_CONFIRM_NEEDED = 10;
   int removal_confirm = 0;
   const int REMOVAL_CONFIRM_NEEDED = 5;
+
+  // Game settings state (persists across frames while in kGameSettings).
+  GameSettings pending_settings;
+  int settings_preset = 0;
+  bool settings_setup_mode = false;
+
+  // Load game state (persists across frames while in kLoadGame).
+  std::vector<touchstone::SaveInfo> load_saves;
+  int load_scroll = 0;
 
   std::vector<int> puzzle_status(deck.size(), 0);
 
@@ -237,102 +247,27 @@ int main(int argc, char* argv[]) {
       Button btn_exit("Exit", ui::RedStyle());
 
       if (btn_play.Draw(bx, by, BTN_W, BTN_H, mouse)) {
-        EndDrawing();
-        GameSettings gs = RunGameSettings(chat);
-        if (!gs.cancelled) {
-          RunGame(chat, katago_ptr, &vision, gs);
-        }
-        chat.SetSystemPrompt(kCoachPrompt);
-        chat.SetContextProvider(puzzle_context);
-        continue;
+        pending_settings = GameSettings{};
+        settings_preset = 0;
+        settings_setup_mode = false;
+        phase = Phase::kGameSettings;
       }
 
       by += BTN_H + GAP;
       if (btn_position.Draw(bx, by, BTN_W, BTN_H, mouse)) {
-        EndDrawing();
-        GameSettings gs = RunGameSettings(chat);
-        if (!gs.cancelled) {
-          gs.setup_mode = true;
-          RunGame(chat, katago_ptr, &vision, gs);
-        }
-        chat.SetSystemPrompt(kCoachPrompt);
-        chat.SetContextProvider(puzzle_context);
-        continue;
+        pending_settings = GameSettings{};
+        settings_preset = 0;
+        settings_setup_mode = true;
+        phase = Phase::kGameSettings;
       }
 
       by += BTN_H + GAP;
       if (btn_load.Draw(bx, by, BTN_W, BTN_H, mouse)) {
-        EndDrawing();
-        auto saves = touchstone::ListSaves();
-        if (!saves.empty()) {
-          std::string chosen_path;
-          int scroll = 0;
-          bool picking = true;
-          Button btn_back("< Back", ui::SubtleStyle(), 20);
-          while (picking && !ShouldClose()) {
-            BeginDrawing();
-            ClearBackground(Color{35, 30, 25, 255});
-            int sw = GetScreenWidth();
-            int sh = GetScreenHeight();
-            const char* lt = "LOAD GAME";
-            int ltw = MeasureText(lt, 30);
-            DrawText(lt, (sw - ltw) / 2, 30, 30,
-                     Color{220, 180, 100, 255});
-
-            int lx = (sw - 480) / 2;
-            int ly = 80;
-            int max_vis = (sh - 140) / 46;
-            Vector2 mp = GetMousePosition();
-            for (int i = scroll;
-                 i < (int)saves.size() && i < scroll + max_vis; i++) {
-              int ry = ly + (i - scroll) * 46;
-              Rectangle row = {(float)lx, (float)ry, 480, 42};
-              bool rh = CheckCollisionPointRec(mp, row);
-              DrawRectangleRec(row, rh ? Color{55, 55, 65, 255}
-                                      : Color{40, 40, 48, 255});
-              DrawRectangleLinesEx(row, 1, Color{80, 80, 90, 255});
-              DrawText(saves[i].display_name.c_str(), lx + 8, ry + 4, 16,
-                       RAYWHITE);
-              DrawText(
-                  TextFormat("%dx%d  %d moves  %s", saves[i].board_size,
-                             saves[i].board_size, saves[i].move_count,
-                             saves[i].timestamp.substr(0, 10).c_str()),
-                  lx + 8, ry + 22, 12, Color{140, 140, 140, 255});
-              if (rh && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                chosen_path = saves[i].filepath;
-                picking = false;
-              }
-            }
-            int wheel = (int)GetMouseWheelMove();
-            if (wheel != 0) {
-              scroll -= wheel;
-              if (scroll < 0) scroll = 0;
-              int ms = std::max(0, (int)saves.size() - max_vis);
-              if (scroll > ms) scroll = ms;
-            }
-
-            int back_w = MeasureText("< Back", 20) + 24;
-            if (btn_back.Draw(lx, sh - 50, back_w, 36, mp)) picking = false;
-            if (IsKeyPressed(KEY_ESCAPE)) picking = false;
-            EndDrawing();
-          }
-          if (!chosen_path.empty()) {
-            touchstone::SaveData sd;
-            std::string err = touchstone::LoadGame(chosen_path, sd);
-            if (err.empty()) {
-              GameSettings gs;
-              gs.board_size = sd.board_size;
-              gs.human_color = static_cast<go::Stone>(sd.human_color);
-              gs.human_sl_profile = sd.human_sl_profile;
-              gs.komi = sd.komi;
-              gs.load_save_path = chosen_path;
-              RunGame(chat, katago_ptr, &vision, gs);
-            }
-          }
+        load_saves = touchstone::ListSaves();
+        load_scroll = 0;
+        if (!load_saves.empty()) {
+          phase = Phase::kLoadGame;
         }
-        chat.SetSystemPrompt(kCoachPrompt);
-        chat.SetContextProvider(puzzle_context);
-        continue;
       }
 
       by += BTN_H + GAP;
@@ -349,6 +284,105 @@ int main(int argc, char* argv[]) {
 
       chat.Draw(GetScreenWidth(), GetScreenHeight());
       EndDrawing();
+      continue;
+    }
+
+    // --- Game settings phase ---
+    if (phase == Phase::kGameSettings) {
+      bool chat_consumed = chat.HandleInput();
+      SettingsAction action = DrawGameSettings(
+          pending_settings, settings_preset, chat_consumed,
+          vision_active ? vision_board_size : 0);
+      chat.Draw(GetScreenWidth(), GetScreenHeight());
+      EndDrawing();
+      if (action == SettingsAction::kStart) {
+        pending_settings.setup_mode = settings_setup_mode;
+        RunGame(chat, katago_ptr, &vision, pending_settings);
+        chat.SetSystemPrompt(kCoachPrompt);
+        chat.SetContextProvider(puzzle_context);
+        phase = Phase::kMenu;
+      } else if (action == SettingsAction::kCancel) {
+        phase = Phase::kMenu;
+      }
+      continue;
+    }
+
+    // --- Load game phase ---
+    if (phase == Phase::kLoadGame) {
+      bool chat_consumed = chat.HandleInput();
+
+      BeginDrawing();
+      ClearBackground(Color{35, 30, 25, 255});
+
+      int scr_w = GetScreenWidth();
+      int scr_h = GetScreenHeight();
+      const char* lt = "LOAD GAME";
+      int ltw = MeasureText(lt, 30);
+      DrawText(lt, (scr_w - ltw) / 2, 30, 30, Color{220, 180, 100, 255});
+
+      int lx = (scr_w - 480) / 2;
+      int ly = 80;
+      int max_vis = (scr_h - 140) / 46;
+      Vector2 mouse = GetMousePosition();
+      std::string chosen_path;
+
+      for (int i = load_scroll;
+           i < (int)load_saves.size() && i < load_scroll + max_vis; i++) {
+        int ry = ly + (i - load_scroll) * 46;
+        Rectangle row = {(float)lx, (float)ry, 480, 42};
+        bool rh = CheckCollisionPointRec(mouse, row);
+        DrawRectangleRec(row, rh ? Color{55, 55, 65, 255}
+                                : Color{40, 40, 48, 255});
+        DrawRectangleLinesEx(row, 1, Color{80, 80, 90, 255});
+        DrawText(load_saves[i].display_name.c_str(), lx + 8, ry + 4, 16,
+                 RAYWHITE);
+        DrawText(
+            TextFormat("%dx%d  %d moves  %s", load_saves[i].board_size,
+                       load_saves[i].board_size, load_saves[i].move_count,
+                       load_saves[i].timestamp.substr(0, 10).c_str()),
+            lx + 8, ry + 22, 12, Color{140, 140, 140, 255});
+        if (rh && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+          chosen_path = load_saves[i].filepath;
+        }
+      }
+
+      int wheel = (int)GetMouseWheelMove();
+      if (wheel != 0) {
+        load_scroll -= wheel;
+        if (load_scroll < 0) load_scroll = 0;
+        int ms = std::max(0, (int)load_saves.size() - max_vis);
+        if (load_scroll > ms) load_scroll = ms;
+      }
+
+      {
+        Button btn_back("< Back", ui::SubtleStyle(), 20);
+        int back_w = MeasureText("< Back", 20) + 24;
+        if (btn_back.Draw(lx, scr_h - 50, back_w, 36, mouse))
+          phase = Phase::kMenu;
+      }
+      if (!chat_consumed && IsKeyPressed(KEY_ESCAPE)) {
+        phase = Phase::kMenu;
+      }
+
+      chat.Draw(scr_w, scr_h);
+      EndDrawing();
+
+      if (!chosen_path.empty()) {
+        touchstone::SaveData sd;
+        std::string err = touchstone::LoadGame(chosen_path, sd);
+        if (err.empty()) {
+          GameSettings gs;
+          gs.board_size = sd.board_size;
+          gs.human_color = static_cast<go::Stone>(sd.human_color);
+          gs.human_sl_profile = sd.human_sl_profile;
+          gs.komi = sd.komi;
+          gs.load_save_path = chosen_path;
+          RunGame(chat, katago_ptr, &vision, gs);
+          chat.SetSystemPrompt(kCoachPrompt);
+          chat.SetContextProvider(puzzle_context);
+          phase = Phase::kMenu;
+        }
+      }
       continue;
     }
 

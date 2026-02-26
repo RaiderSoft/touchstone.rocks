@@ -345,6 +345,15 @@ void RunVisionDevMode() {
         220,
         &cal.brightness_midpoint};
     DrawSlider(mid_sl);
+    py += ROW_H;
+
+    Slider confirm_sl = {
+        {(float)px, (float)py, (float)SLIDER_W, (float)SLIDER_H},
+        "Auto-confirm (sec, 0=off)",
+        0,
+        10,
+        &cal.auto_confirm_seconds};
+    DrawSlider(confirm_sl);
     py += 34;
 
     Button canny_btn = {{(float)px, (float)py, (float)SLIDER_W, 24},
