@@ -99,6 +99,7 @@ std::string SaveGame(const std::string& path, const SaveData& data) {
   j["board_size"] = data.board_size;
   j["human_color"] = data.human_color;
   j["human_sl_profile"] = data.human_sl_profile;
+  j["komi"] = data.komi;
 
   // Move history.
   json hist = json::array();
@@ -117,6 +118,13 @@ std::string SaveGame(const std::string& path, const SaveData& data) {
     log.push_back(rj);
   }
   j["move_log"] = log;
+
+  // Chat history.
+  json chat = json::array();
+  for (const auto& msg : data.chat_messages) {
+    chat.push_back({{"role", msg.role}, {"content", msg.content}});
+  }
+  j["chat_messages"] = chat;
 
   // UI state.
   j["state"] = {
@@ -173,6 +181,7 @@ std::string LoadGame(const std::string& path, SaveData& data) {
   data.board_size = j.at("board_size").get<int>();
   data.human_color = j.at("human_color").get<int>();
   data.human_sl_profile = j.value("human_sl_profile", "preaz_20k");
+  data.komi = j.value("komi", DefaultKomi(data.board_size));
 
   if (data.board_size != 9 && data.board_size != 13 && data.board_size != 19) {
     return "Invalid board size in save file: " +
@@ -200,6 +209,18 @@ std::string LoadGame(const std::string& path, SaveData& data) {
       MoveRecord r;
       from_json(rj, r);
       data.move_log.push_back(r);
+    }
+  }
+
+  // Chat history.
+  data.chat_messages.clear();
+  if (j.contains("chat_messages")) {
+    for (const auto& cj : j["chat_messages"]) {
+      ChatMessage msg;
+      msg.role = cj.at("role").get<std::string>();
+      msg.content = cj.at("content").get<std::string>();
+      msg.timestamp = 0;
+      data.chat_messages.push_back(msg);
     }
   }
 

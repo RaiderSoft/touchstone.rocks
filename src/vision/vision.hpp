@@ -50,6 +50,13 @@ class VisionSystem {
   void SaveCalibration() const;
   CalibrationData& GetCalibration();
 
+  // Clear detection state (smoothing counters + latest result).
+  void ResetDetection();
+
+  // Change the board size and reset detection state.
+  void SetBoardSize(int size);
+  int GetBoardSize() const;
+
   // Set a corner during interactive calibration (0=TL, 1=TR, 2=BL, 3=BR).
   void SetCalibrationCorner(int index, float x, float y);
 

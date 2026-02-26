@@ -90,6 +90,9 @@ class Engine {
   // Set the board size for all subsequent queries.
   void SetBoardSize(int size);
 
+  // Set the komi for all subsequent queries.
+  void SetKomi(double komi);
+
   // Request analysis of the current game position.
   // move_history is the sequence of all moves played so far.
   // analyze_turn is which turn to analyze (typically move_history.size()).

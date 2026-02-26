@@ -57,7 +57,8 @@ bool ChatOverlay::HandleInput() {
   switch (state_) {
     case ChatState::kHidden: {
       if (IsKeyPressed(KEY_ENTER)) {
-        state_ = ChatState::kOpen;
+        state_ = waiting_for_response_ ? ChatState::kThinking
+                                       : ChatState::kOpen;
         input_text_.clear();
         cursor_pos_ = 0;
         scroll_offset_ = 0;
@@ -181,10 +182,11 @@ void ChatOverlay::SendMessage() {
   ai::Request request;
   request.system_prompt = full_prompt;
   request.messages = api_messages;
-  request.max_tokens = 512;
+  request.max_tokens = 32768;
 
   input_text_.clear();
   cursor_pos_ = 0;
+  waiting_for_response_ = true;
   // Only show "thinking" state if the overlay is already open.
   // Voice-initiated messages from the game board keep the overlay hidden.
   if (state_ == ChatState::kOpen) {
@@ -215,6 +217,7 @@ void ChatOverlay::CheckForResponse() {
   if (!has_pending_response_) return;
 
   has_pending_response_ = false;
+  waiting_for_response_ = false;
 
   if (!pending_error_.empty()) {
     messages_.push_back({"assistant", "Error: " + pending_error_, GetTime()});
@@ -427,7 +430,7 @@ void ChatOverlay::DrawMessages(int screen_w, int screen_h, int bottom_y) {
     std::string status_text;
     Color status_color = Color{150, 150, 150, 255};
 
-    if (state_ == ChatState::kThinking) {
+    if (waiting_for_response_) {
       int dots = (static_cast<int>(now * 3.0)) % 4;
       status_text = "Thinking";
       for (int i = 0; i < dots; i++) {
@@ -665,26 +668,41 @@ std::vector<std::string> ChatOverlay::WrapText(const std::string& text,
     return lines;
   }
 
-  std::string remaining = text;
-  while (!remaining.empty()) {
-    int fit = static_cast<int>(remaining.size());
-    while (fit > 0 &&
-           ChatMeasureText(remaining.substr(0, fit).c_str(), kFontSize) >
-               max_width) {
-      int space = static_cast<int>(remaining.rfind(' ', fit - 1));
-      if (space <= 0) {
-        fit--;
-      } else {
-        fit = space;
-      }
-    }
-    if (fit <= 0) fit = 1;
+  // Split on newlines first, then wrap each paragraph by pixel width.
+  std::string::size_type start = 0;
+  while (start <= text.size()) {
+    auto nl = text.find('\n', start);
+    std::string paragraph = (nl == std::string::npos)
+                                ? text.substr(start)
+                                : text.substr(start, nl - start);
+    start = (nl == std::string::npos) ? text.size() + 1 : nl + 1;
 
-    lines.push_back(remaining.substr(0, fit));
-    if (fit < static_cast<int>(remaining.size()) && remaining[fit] == ' ') {
-      fit++;
+    if (paragraph.empty()) {
+      lines.push_back("");
+      continue;
     }
-    remaining = remaining.substr(fit);
+
+    std::string remaining = paragraph;
+    while (!remaining.empty()) {
+      int fit = static_cast<int>(remaining.size());
+      while (fit > 0 &&
+             ChatMeasureText(remaining.substr(0, fit).c_str(), kFontSize) >
+                 max_width) {
+        int space = static_cast<int>(remaining.rfind(' ', fit - 1));
+        if (space <= 0) {
+          fit--;
+        } else {
+          fit = space;
+        }
+      }
+      if (fit <= 0) fit = 1;
+
+      lines.push_back(remaining.substr(0, fit));
+      if (fit < static_cast<int>(remaining.size()) && remaining[fit] == ' ') {
+        fit++;
+      }
+      remaining = remaining.substr(fit);
+    }
   }
 
   if (lines.empty()) lines.push_back("");

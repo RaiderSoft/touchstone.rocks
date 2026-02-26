@@ -59,6 +59,12 @@ class ChatOverlay {
   // Add a message to the chat log from an external caller.
   void AddMessage(const std::string& role, const std::string& content);
 
+  // Access chat history for save/load.
+  const std::vector<ChatMessage>& GetMessages() const { return messages_; }
+  void SetMessages(std::vector<ChatMessage> messages) {
+    messages_ = std::move(messages);
+  }
+
  private:
   ChatState state_ = ChatState::kHidden;
   std::string input_text_;
@@ -71,6 +77,7 @@ class ChatOverlay {
   ai::Service& service_;
 
   // Threading for async chat API calls.
+  bool waiting_for_response_ = false;  // True from send until response arrives.
   std::mutex response_mutex_;
   bool has_pending_response_ = false;
   std::string pending_response_;

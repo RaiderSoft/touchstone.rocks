@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "chat/chat_overlay.hpp"
 #include "ui/game_mode.hpp"
 #include "engine/katago_engine.hpp"
 
@@ -26,9 +27,13 @@ struct SaveData {
   int board_size;
   int human_color;                   // 1=Black, 2=White
   std::string human_sl_profile;
+  double komi;
 
   std::vector<katago::HistoryMove> move_history;
   std::vector<MoveRecord> move_log;
+
+  // Chat history.
+  std::vector<ChatMessage> chat_messages;
 
   // UI state.
   double prev_winrate;

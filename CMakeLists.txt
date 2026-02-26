@@ -52,6 +52,11 @@ add_executable(touchstone
     src/main.cpp
     src/ui/game_board.cpp
     src/ui/game_mode.cpp
+    src/ui/game_settings.cpp
+    src/ui/katago_overlay.cpp
+    src/ui/board_overlay.cpp
+    src/ui/game_context.cpp
+    src/ui/game_controls.cpp
     src/chat/chat_overlay.cpp
     src/chat/ai_provider.cpp
     src/engine/katago_engine.cpp
@@ -63,7 +68,13 @@ add_executable(touchstone
     cards/card_data.cpp
 )
 target_include_directories(touchstone PRIVATE include cards src)
-target_link_libraries(touchstone PRIVATE go_engine board_lib CURL::libcurl nlohmann_json::nlohmann_json "-framework AudioToolbox")
+target_link_libraries(touchstone PRIVATE go_engine board_lib CURL::libcurl nlohmann_json::nlohmann_json)
+if(APPLE)
+    target_link_libraries(touchstone PRIVATE "-framework AudioToolbox")
+elseif(UNIX)
+    find_package(ALSA REQUIRED)
+    target_link_libraries(touchstone PRIVATE ALSA::ALSA)
+endif()
 
 # OpenCV vision component for camera-based board detection
 find_package(OpenCV REQUIRED COMPONENTS core imgproc videoio)

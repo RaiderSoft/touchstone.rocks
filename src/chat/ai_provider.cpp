@@ -136,7 +136,7 @@ class GeminiProvider : public Provider {
   std::string name() const override { return "Google"; }
 
   std::vector<std::string> models() const override {
-    return {"gemini-2.5-pro", "gemini-2.5-flash"};
+    return {"gemini-2.5-pro"};
   }
 
   Response Complete(const Request& request) override {
@@ -225,7 +225,9 @@ class GeminiProvider : public Provider {
         }
       }
       if (!result.success) {
-        result.error = "Unexpected API response format";
+        fprintf(stderr, "Gemini: unexpected response: %s\n",
+                response_body.c_str());
+        result.error = "Unexpected API response (see terminal)";
       }
     } catch (const std::exception& e) {
       result.error = std::string("Failed to parse response: ") + e.what();

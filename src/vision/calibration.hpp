@@ -17,6 +17,9 @@ struct CalibrationData {
   // Canny upper threshold (used by HoughCircles internally and for debug view).
   float canny_threshold = 100.0f;
 
+  // Board size this calibration was created for (9 or 13).
+  int board_size = 9;
+
   bool valid = false;
 };
 

@@ -19,6 +19,7 @@
 
 #include <curl/curl.h>
 
+#include "persist/game_save.hpp"
 #include "vision/vision.hpp"
 #include "vision/vision_dev.hpp"
 
@@ -74,11 +75,15 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  touchstone::VisionSystem vision(9);
+  auto vision_cal = touchstone::LoadCalibrationData();
+  int vision_board_size = vision_cal.valid ? vision_cal.board_size : 0;
+  touchstone::VisionSystem vision(vision_board_size > 0 ? vision_board_size : 9);
   bool vision_active = false;
-  vision.LoadCalibration();
-  if (vision.IsCalibrated()) {
-    vision_active = vision.Start(0);
+  if (vision_board_size > 0) {
+    vision.LoadCalibration();
+    if (vision.IsCalibrated()) {
+      vision_active = vision.Start(0);
+    }
   }
   touchstone::DetectionResult baseline;
   bool baseline_captured = false;
@@ -131,10 +136,9 @@ int main(int argc, char* argv[]) {
   const char* khm = std::getenv("KATAGO_HUMAN_MODEL");
   katago_config.human_model_path = khm ? khm : km;  // Default: same as model.
   const char* kc = std::getenv("KATAGO_CONFIG");
-  katago_config.config_path =
-      kc ? kc : "/opt/homebrew/share/katago/configs/analysis_example.cfg";
+  katago_config.config_path = (kc && kc[0] != '\0') ? kc : "config/analysis_example.cfg";
   const char* kv = std::getenv("KATAGO_ANALYSIS_VISITS");
-  katago_config.default_max_visits = kv ? std::atoi(kv) : 200;
+  katago_config.default_max_visits = (kv && kv[0] != '\0') ? std::atoi(kv) : 200;
 
   katago::Engine katago_engine(katago_config);
   if (!katago_engine.Start()) {
@@ -195,21 +199,21 @@ int main(int argc, char* argv[]) {
       BeginDrawing();
       ClearBackground(Color{35, 30, 25, 255});
 
-      const int TITLE_Y = 20;
+      const int TITLE_Y = 30;
       const char* title = "touchstone.rocks";
-      int tw = MeasureText(title, 40);
-      DrawText(title, (GetScreenWidth() - tw) / 2, TITLE_Y, 40,
+      int tw = MeasureText(title, 56);
+      DrawText(title, (GetScreenWidth() - tw) / 2, TITLE_Y, 56,
                Color{220, 180, 100, 255});
 
       const char* subtitle = "Select an option";
-      int sw = MeasureText(subtitle, 20);
-      DrawText(subtitle, (GetScreenWidth() - sw) / 2, TITLE_Y + 48, 20,
+      int sw = MeasureText(subtitle, 24);
+      DrawText(subtitle, (GetScreenWidth() - sw) / 2, TITLE_Y + 68, 24,
                GRAY);
 
-      const int BTN_W = 360;
-      const int BTN_H = 40;
-      const int GAP = 8;
-      int start_y = TITLE_Y + 90;
+      const int BTN_W = 480;
+      const int BTN_H = 54;
+      const int GAP = 10;
+      int start_y = TITLE_Y + 120;
       int bx = (GetScreenWidth() - BTN_W) / 2;
       Vector2 mouse = GetMousePosition();
 
@@ -221,7 +225,7 @@ int main(int argc, char* argv[]) {
         Color bg = hover ? Color{55, 70, 55, 255} : Color{40, 55, 40, 255};
         DrawRectangleRec(btn, bg);
         DrawRectangle(bx, by, 4, BTN_H, Color{100, 200, 100, 255});
-        DrawText("Play vs Computer", bx + 14, by + 10, 18,
+        DrawText("Play vs Computer", bx + 18, by + 14, 24,
                  Color{180, 255, 180, 255});
         if (hover)
           DrawRectangleLinesEx(btn, 1, Color{100, 200, 100, 255});
@@ -246,7 +250,7 @@ int main(int argc, char* argv[]) {
         Color bg = hover ? Color{55, 55, 70, 255} : Color{40, 40, 55, 255};
         DrawRectangleRec(btn, bg);
         DrawRectangle(bx, by, 4, BTN_H, Color{100, 140, 220, 255});
-        DrawText("Play from Position", bx + 14, by + 10, 18,
+        DrawText("Play from Position", bx + 18, by + 14, 24,
                  Color{160, 190, 255, 255});
         if (hover)
           DrawRectangleLinesEx(btn, 1, Color{100, 140, 220, 255});
@@ -263,10 +267,96 @@ int main(int argc, char* argv[]) {
         }
       }
 
+      // "Load Game" button.
+      start_y += BTN_H + GAP;
+      {
+        int by = start_y;
+        Rectangle btn = {(float)bx, (float)by, (float)BTN_W, (float)BTN_H};
+        bool hover = CheckCollisionPointRec(mouse, btn);
+        Color bg = hover ? Color{60, 55, 70, 255} : Color{45, 40, 55, 255};
+        DrawRectangleRec(btn, bg);
+        DrawRectangle(bx, by, 4, BTN_H, Color{180, 140, 220, 255});
+        DrawText("Load Game", bx + 18, by + 14, 24,
+                 Color{200, 180, 255, 255});
+        if (hover)
+          DrawRectangleLinesEx(btn, 1, Color{180, 140, 220, 255});
+        if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+          EndDrawing();
+          auto saves = touchstone::ListSaves();
+          if (!saves.empty()) {
+            // Save picker loop.
+            std::string chosen_path;
+            int scroll = 0;
+            bool picking = true;
+            while (picking && !ShouldClose()) {
+              BeginDrawing();
+              ClearBackground(Color{35, 30, 25, 255});
+              int sw = GetScreenWidth();
+              int sh = GetScreenHeight();
+              const char* lt = "LOAD GAME";
+              int ltw = MeasureText(lt, 30);
+              DrawText(lt, (sw - ltw) / 2, 30, 30,
+                       Color{220, 180, 100, 255});
+
+              int lx = (sw - 480) / 2;
+              int ly = 80;
+              int max_vis = (sh - 140) / 46;
+              for (int i = scroll;
+                   i < (int)saves.size() && i < scroll + max_vis; i++) {
+                int ry = ly + (i - scroll) * 46;
+                Rectangle row = {(float)lx, (float)ry, 480, 42};
+                Vector2 mp = GetMousePosition();
+                bool rh = CheckCollisionPointRec(mp, row);
+                DrawRectangleRec(row, rh ? Color{55, 55, 65, 255}
+                                        : Color{40, 40, 48, 255});
+                DrawRectangleLinesEx(row, 1, Color{80, 80, 90, 255});
+                DrawText(saves[i].display_name.c_str(), lx + 8, ry + 4, 16,
+                         RAYWHITE);
+                DrawText(
+                    TextFormat("%dx%d  %d moves  %s", saves[i].board_size,
+                               saves[i].board_size, saves[i].move_count,
+                               saves[i].timestamp.substr(0, 10).c_str()),
+                    lx + 8, ry + 22, 12, Color{140, 140, 140, 255});
+                if (rh && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                  chosen_path = saves[i].filepath;
+                  picking = false;
+                }
+              }
+              int wheel = (int)GetMouseWheelMove();
+              if (wheel != 0) {
+                scroll -= wheel;
+                if (scroll < 0) scroll = 0;
+                int ms = std::max(0, (int)saves.size() - max_vis);
+                if (scroll > ms) scroll = ms;
+              }
+              DrawText("ESC to cancel", lx, sh - 30, 14, GRAY);
+              if (IsKeyPressed(KEY_ESCAPE)) picking = false;
+              EndDrawing();
+            }
+            if (!chosen_path.empty()) {
+              touchstone::SaveData sd;
+              std::string err = touchstone::LoadGame(chosen_path, sd);
+              if (err.empty()) {
+                GameSettings gs;
+                gs.board_size = sd.board_size;
+                gs.human_color = static_cast<go::Stone>(sd.human_color);
+                gs.human_sl_profile = sd.human_sl_profile;
+                gs.komi = sd.komi;
+                gs.load_save_path = chosen_path;
+                RunGame(chat, katago_ptr, &vision, gs);
+              }
+            }
+          }
+          chat.SetSystemPrompt(kCoachPrompt);
+          chat.SetContextProvider(puzzle_context);
+          continue;
+        }
+      }
+
       // Puzzle list.
       start_y += BTN_H + GAP * 3;
-      DrawText("PUZZLES", bx, start_y - 4, 14, GRAY);
-      start_y += 20;
+      DrawText("PUZZLES", bx, start_y - 4, 18, GRAY);
+      start_y += 26;
 
       for (int i = 0; i < static_cast<int>(deck.size()); i++) {
         int by = start_y + i * (BTN_H + GAP);
@@ -287,11 +377,10 @@ int main(int argc, char* argv[]) {
         }
         DrawRectangle(bx, by, 4, BTN_H, indicator);
 
-        char label[128];
-        snprintf(label, sizeof(label), "%d. [%s] %s", i + 1,
-                 CardTypeName(deck[i].type), deck[i].id.c_str());
-        DrawText(label, bx + 14, by + 6, 18, RAYWHITE);
-        DrawText(status_icon, bx + BTN_W - 30, by + 12, 14, indicator);
+        DrawText(TextFormat("%d. [%s] %s", i + 1,
+                            CardTypeName(deck[i].type), deck[i].id.c_str()),
+                 bx + 18, by + 14, 22, RAYWHITE);
+        DrawText(status_icon, bx + BTN_W - 40, by + 16, 18, indicator);
 
         if (hover)
           DrawRectangleLinesEx(btn, 1, Color{220, 180, 100, 255});
@@ -368,7 +457,6 @@ int main(int argc, char* argv[]) {
             }
           }
 
-          char status[128];
           if (stones_matched == stones_expected && errors == 0 &&
               det.board_found) {
             setup_confirm++;
@@ -378,17 +466,14 @@ int main(int argc, char* argv[]) {
               setup_confirm = 0;
               break;
             }
-            snprintf(status, sizeof(status),
-                     "[%d/%d] Board ready! Confirming...", qi + 1,
-                     (int)deck.size());
-            DrawStatus(status);
+            DrawStatus(TextFormat("[%d/%d] Board ready! Confirming...",
+                                  qi + 1, (int)deck.size()));
           } else {
             setup_confirm = 0;
-            snprintf(status, sizeof(status),
-                     "[%d/%d] Set up the board: %d/%d stones placed",
-                     qi + 1, (int)deck.size(), stones_matched,
-                     stones_expected);
-            DrawStatus(status);
+            DrawStatus(TextFormat(
+                "[%d/%d] Set up the board: %d/%d stones placed",
+                qi + 1, (int)deck.size(), stones_matched,
+                stones_expected));
           }
           break;
         }
@@ -439,11 +524,9 @@ int main(int argc, char* argv[]) {
             std::string player =
                 (card.player_to_move == go::Stone::kBlack) ? "Black"
                                                            : "White";
-            char status[128];
-            snprintf(status, sizeof(status), "%s to play.%s  [ESC=menu]",
-                     player.c_str(),
-                     card.hint.empty() ? "" : " [H=hint]");
-            DrawStatus(status);
+            DrawStatus(TextFormat("%s to play.%s  [ESC=menu]",
+                                  player.c_str(),
+                                  card.hint.empty() ? "" : " [H=hint]"));
           }
 
           if (clicked >= 0) {
