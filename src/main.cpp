@@ -6,6 +6,7 @@
 
 #include "boardgame/board.hpp"
 #include "cards.hpp"
+#include "ui/widgets.hpp"
 #include "chat/chat_overlay.hpp"
 #include "persist/dotenv.hpp"
 #include "ui/game_board.hpp"
@@ -225,182 +226,125 @@ int main(int argc, char* argv[]) {
       const int BTN_W = 480;
       const int BTN_H = 54;
       const int GAP = 10;
-      int start_y = TITLE_Y + 120;
+      int by = TITLE_Y + 120;
       int bx = (GetScreenWidth() - BTN_W) / 2;
       Vector2 mouse = GetMousePosition();
 
-      // "Play vs Computer" button.
-      {
-        int by = start_y;
-        Rectangle btn = {(float)bx, (float)by, (float)BTN_W, (float)BTN_H};
-        bool hover = CheckCollisionPointRec(mouse, btn);
-        Color bg = hover ? Color{55, 70, 55, 255} : Color{40, 55, 40, 255};
-        DrawRectangleRec(btn, bg);
-        DrawRectangle(bx, by, 4, BTN_H, Color{100, 200, 100, 255});
-        DrawText("Play vs Computer", bx + 18, by + 14, 24,
-                 Color{180, 255, 180, 255});
-        if (hover)
-          DrawRectangleLinesEx(btn, 1, Color{100, 200, 100, 255});
-        if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-          EndDrawing();
-          GameSettings gs = RunGameSettings(chat);
-          if (!gs.cancelled) {
-            RunGame(chat, katago_ptr, &vision, gs);
-          }
-          chat.SetSystemPrompt(kCoachPrompt);
-          chat.SetContextProvider(puzzle_context);
-          continue;
+      Button btn_play("Play vs Computer", ui::GreenStyle());
+      Button btn_position("Play from Position", ui::BlueStyle());
+      Button btn_load("Load Game", ui::PurpleStyle());
+      Button btn_puzzles("Puzzles", ui::GoldStyle());
+      Button btn_exit("Exit", ui::RedStyle());
+
+      if (btn_play.Draw(bx, by, BTN_W, BTN_H, mouse)) {
+        EndDrawing();
+        GameSettings gs = RunGameSettings(chat);
+        if (!gs.cancelled) {
+          RunGame(chat, katago_ptr, &vision, gs);
         }
+        chat.SetSystemPrompt(kCoachPrompt);
+        chat.SetContextProvider(puzzle_context);
+        continue;
       }
 
-      // "Play from Position" button.
-      start_y += BTN_H + GAP;
-      {
-        int by = start_y;
-        Rectangle btn = {(float)bx, (float)by, (float)BTN_W, (float)BTN_H};
-        bool hover = CheckCollisionPointRec(mouse, btn);
-        Color bg = hover ? Color{55, 55, 70, 255} : Color{40, 40, 55, 255};
-        DrawRectangleRec(btn, bg);
-        DrawRectangle(bx, by, 4, BTN_H, Color{100, 140, 220, 255});
-        DrawText("Play from Position", bx + 18, by + 14, 24,
-                 Color{160, 190, 255, 255});
-        if (hover)
-          DrawRectangleLinesEx(btn, 1, Color{100, 140, 220, 255});
-        if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-          EndDrawing();
-          GameSettings gs = RunGameSettings(chat);
-          if (!gs.cancelled) {
-            gs.setup_mode = true;
-            RunGame(chat, katago_ptr, &vision, gs);
-          }
-          chat.SetSystemPrompt(kCoachPrompt);
-          chat.SetContextProvider(puzzle_context);
-          continue;
+      by += BTN_H + GAP;
+      if (btn_position.Draw(bx, by, BTN_W, BTN_H, mouse)) {
+        EndDrawing();
+        GameSettings gs = RunGameSettings(chat);
+        if (!gs.cancelled) {
+          gs.setup_mode = true;
+          RunGame(chat, katago_ptr, &vision, gs);
         }
+        chat.SetSystemPrompt(kCoachPrompt);
+        chat.SetContextProvider(puzzle_context);
+        continue;
       }
 
-      // "Load Game" button.
-      start_y += BTN_H + GAP;
-      {
-        int by = start_y;
-        Rectangle btn = {(float)bx, (float)by, (float)BTN_W, (float)BTN_H};
-        bool hover = CheckCollisionPointRec(mouse, btn);
-        Color bg = hover ? Color{60, 55, 70, 255} : Color{45, 40, 55, 255};
-        DrawRectangleRec(btn, bg);
-        DrawRectangle(bx, by, 4, BTN_H, Color{180, 140, 220, 255});
-        DrawText("Load Game", bx + 18, by + 14, 24,
-                 Color{200, 180, 255, 255});
-        if (hover)
-          DrawRectangleLinesEx(btn, 1, Color{180, 140, 220, 255});
-        if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-          EndDrawing();
-          auto saves = touchstone::ListSaves();
-          if (!saves.empty()) {
-            // Save picker loop.
-            std::string chosen_path;
-            int scroll = 0;
-            bool picking = true;
-            while (picking && !ShouldClose()) {
-              BeginDrawing();
-              ClearBackground(Color{35, 30, 25, 255});
-              int sw = GetScreenWidth();
-              int sh = GetScreenHeight();
-              const char* lt = "LOAD GAME";
-              int ltw = MeasureText(lt, 30);
-              DrawText(lt, (sw - ltw) / 2, 30, 30,
-                       Color{220, 180, 100, 255});
+      by += BTN_H + GAP;
+      if (btn_load.Draw(bx, by, BTN_W, BTN_H, mouse)) {
+        EndDrawing();
+        auto saves = touchstone::ListSaves();
+        if (!saves.empty()) {
+          std::string chosen_path;
+          int scroll = 0;
+          bool picking = true;
+          Button btn_back("< Back", ui::SubtleStyle(), 20);
+          while (picking && !ShouldClose()) {
+            BeginDrawing();
+            ClearBackground(Color{35, 30, 25, 255});
+            int sw = GetScreenWidth();
+            int sh = GetScreenHeight();
+            const char* lt = "LOAD GAME";
+            int ltw = MeasureText(lt, 30);
+            DrawText(lt, (sw - ltw) / 2, 30, 30,
+                     Color{220, 180, 100, 255});
 
-              int lx = (sw - 480) / 2;
-              int ly = 80;
-              int max_vis = (sh - 140) / 46;
-              for (int i = scroll;
-                   i < (int)saves.size() && i < scroll + max_vis; i++) {
-                int ry = ly + (i - scroll) * 46;
-                Rectangle row = {(float)lx, (float)ry, 480, 42};
-                Vector2 mp = GetMousePosition();
-                bool rh = CheckCollisionPointRec(mp, row);
-                DrawRectangleRec(row, rh ? Color{55, 55, 65, 255}
-                                        : Color{40, 40, 48, 255});
-                DrawRectangleLinesEx(row, 1, Color{80, 80, 90, 255});
-                DrawText(saves[i].display_name.c_str(), lx + 8, ry + 4, 16,
-                         RAYWHITE);
-                DrawText(
-                    TextFormat("%dx%d  %d moves  %s", saves[i].board_size,
-                               saves[i].board_size, saves[i].move_count,
-                               saves[i].timestamp.substr(0, 10).c_str()),
-                    lx + 8, ry + 22, 12, Color{140, 140, 140, 255});
-                if (rh && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-                  chosen_path = saves[i].filepath;
-                  picking = false;
-                }
-              }
-              int wheel = (int)GetMouseWheelMove();
-              if (wheel != 0) {
-                scroll -= wheel;
-                if (scroll < 0) scroll = 0;
-                int ms = std::max(0, (int)saves.size() - max_vis);
-                if (scroll > ms) scroll = ms;
-              }
-              DrawText("ESC to cancel", lx, sh - 30, 14, GRAY);
-              if (IsKeyPressed(KEY_ESCAPE)) picking = false;
-              EndDrawing();
-            }
-            if (!chosen_path.empty()) {
-              touchstone::SaveData sd;
-              std::string err = touchstone::LoadGame(chosen_path, sd);
-              if (err.empty()) {
-                GameSettings gs;
-                gs.board_size = sd.board_size;
-                gs.human_color = static_cast<go::Stone>(sd.human_color);
-                gs.human_sl_profile = sd.human_sl_profile;
-                gs.komi = sd.komi;
-                gs.load_save_path = chosen_path;
-                RunGame(chat, katago_ptr, &vision, gs);
+            int lx = (sw - 480) / 2;
+            int ly = 80;
+            int max_vis = (sh - 140) / 46;
+            Vector2 mp = GetMousePosition();
+            for (int i = scroll;
+                 i < (int)saves.size() && i < scroll + max_vis; i++) {
+              int ry = ly + (i - scroll) * 46;
+              Rectangle row = {(float)lx, (float)ry, 480, 42};
+              bool rh = CheckCollisionPointRec(mp, row);
+              DrawRectangleRec(row, rh ? Color{55, 55, 65, 255}
+                                      : Color{40, 40, 48, 255});
+              DrawRectangleLinesEx(row, 1, Color{80, 80, 90, 255});
+              DrawText(saves[i].display_name.c_str(), lx + 8, ry + 4, 16,
+                       RAYWHITE);
+              DrawText(
+                  TextFormat("%dx%d  %d moves  %s", saves[i].board_size,
+                             saves[i].board_size, saves[i].move_count,
+                             saves[i].timestamp.substr(0, 10).c_str()),
+                  lx + 8, ry + 22, 12, Color{140, 140, 140, 255});
+              if (rh && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                chosen_path = saves[i].filepath;
+                picking = false;
               }
             }
+            int wheel = (int)GetMouseWheelMove();
+            if (wheel != 0) {
+              scroll -= wheel;
+              if (scroll < 0) scroll = 0;
+              int ms = std::max(0, (int)saves.size() - max_vis);
+              if (scroll > ms) scroll = ms;
+            }
+
+            int back_w = MeasureText("< Back", 20) + 24;
+            if (btn_back.Draw(lx, sh - 50, back_w, 36, mp)) picking = false;
+            if (IsKeyPressed(KEY_ESCAPE)) picking = false;
+            EndDrawing();
           }
-          chat.SetSystemPrompt(kCoachPrompt);
-          chat.SetContextProvider(puzzle_context);
-          continue;
+          if (!chosen_path.empty()) {
+            touchstone::SaveData sd;
+            std::string err = touchstone::LoadGame(chosen_path, sd);
+            if (err.empty()) {
+              GameSettings gs;
+              gs.board_size = sd.board_size;
+              gs.human_color = static_cast<go::Stone>(sd.human_color);
+              gs.human_sl_profile = sd.human_sl_profile;
+              gs.komi = sd.komi;
+              gs.load_save_path = chosen_path;
+              RunGame(chat, katago_ptr, &vision, gs);
+            }
+          }
         }
+        chat.SetSystemPrompt(kCoachPrompt);
+        chat.SetContextProvider(puzzle_context);
+        continue;
       }
 
-      // "Puzzles" button.
-      start_y += BTN_H + GAP;
-      {
-        int by = start_y;
-        Rectangle btn = {(float)bx, (float)by, (float)BTN_W, (float)BTN_H};
-        bool hover = CheckCollisionPointRec(mouse, btn);
-        Color bg = hover ? Color{70, 65, 55, 255} : Color{50, 45, 38, 255};
-        DrawRectangleRec(btn, bg);
-        DrawRectangle(bx, by, 4, BTN_H, Color{220, 180, 100, 255});
-        DrawText("Puzzles", bx + 18, by + 14, 24,
-                 Color{255, 220, 140, 255});
-        if (hover)
-          DrawRectangleLinesEx(btn, 1, Color{220, 180, 100, 255});
-        if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-          puzzle_scroll = 0;
-          phase = Phase::kPuzzleList;
-        }
+      by += BTN_H + GAP;
+      if (btn_puzzles.Draw(bx, by, BTN_W, BTN_H, mouse)) {
+        puzzle_scroll = 0;
+        phase = Phase::kPuzzleList;
       }
 
-      // "Exit" button.
-      start_y += BTN_H + GAP * 4;
-      {
-        int by = start_y;
-        Rectangle btn = {(float)bx, (float)by, (float)BTN_W, (float)BTN_H};
-        bool hover = CheckCollisionPointRec(mouse, btn);
-        Color bg = hover ? Color{70, 45, 45, 255} : Color{50, 38, 38, 255};
-        DrawRectangleRec(btn, bg);
-        DrawRectangle(bx, by, 4, BTN_H, Color{180, 80, 80, 255});
-        DrawText("Exit", bx + 18, by + 14, 24,
-                 Color{255, 140, 140, 255});
-        if (hover)
-          DrawRectangleLinesEx(btn, 1, Color{180, 80, 80, 255});
-        if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-          EndDrawing();
-          break;
-        }
+      by += BTN_H + GAP * 4;
+      if (btn_exit.Draw(bx, by, BTN_W, BTN_H, mouse)) {
+        EndDrawing();
+        break;
       }
 
       chat.Draw(GetScreenWidth(), GetScreenHeight());
@@ -434,12 +378,7 @@ int main(int argc, char* argv[]) {
 
       for (int i = puzzle_scroll;
            i < (int)deck.size() && i < puzzle_scroll + max_vis; i++) {
-        int by = ly + (i - puzzle_scroll) * (BTN_H + GAP);
-        Rectangle btn = {(float)lx, (float)by, (float)BTN_W, (float)BTN_H};
-        bool hover = CheckCollisionPointRec(mouse, btn);
-
-        Color bg = hover ? Color{70, 65, 55, 255} : Color{50, 45, 38, 255};
-        DrawRectangleRec(btn, bg);
+        int py = ly + (i - puzzle_scroll) * (BTN_H + GAP);
 
         Color indicator = GRAY;
         const char* status_icon = " ";
@@ -450,17 +389,17 @@ int main(int argc, char* argv[]) {
           indicator = RED;
           status_icon = "X";
         }
-        DrawRectangle(lx, by, 4, BTN_H, indicator);
 
-        DrawText(TextFormat("%d. [%s] %s", i + 1,
-                            CardTypeName(deck[i].type), deck[i].id.c_str()),
-                 lx + 18, by + 14, 22, RAYWHITE);
-        DrawText(status_icon, lx + BTN_W - 40, by + 16, 18, indicator);
+        ButtonStyle style = ui::GoldStyle();
+        style.accent = indicator;
+        Button btn(TextFormat("%d. [%s] %s", i + 1,
+                              CardTypeName(deck[i].type), deck[i].id.c_str()),
+                   style, 22);
+        bool clicked = btn.Draw(lx, py, BTN_W, BTN_H, mouse);
 
-        if (hover)
-          DrawRectangleLinesEx(btn, 1, Color{220, 180, 100, 255});
+        DrawText(status_icon, lx + BTN_W - 40, py + 16, 18, indicator);
 
-        if (hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (clicked) {
           qi = i;
           last_clicked = -1;
           if (vision_active) {
@@ -479,7 +418,12 @@ int main(int argc, char* argv[]) {
         if (puzzle_scroll > ms) puzzle_scroll = ms;
       }
 
-      DrawText("ESC to go back", lx, scr_h - 30, 14, GRAY);
+      {
+        Button btn_back("< Back", ui::SubtleStyle(), 20);
+        int back_w = MeasureText("< Back", 20) + 24;
+        if (btn_back.Draw(lx, scr_h - 50, back_w, 36, mouse))
+          phase = Phase::kMenu;
+      }
       if (!chat_consumed && IsKeyPressed(KEY_ESCAPE)) {
         phase = Phase::kMenu;
       }
