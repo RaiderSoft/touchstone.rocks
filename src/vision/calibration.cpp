@@ -37,6 +37,8 @@ CalibrationData LoadCalibrationData() {
       iss >> data.canny_threshold;
     } else if (key == "board_size") {
       iss >> data.board_size;
+    } else if (key == "auto_confirm_seconds") {
+      iss >> data.auto_confirm_seconds;
     } else if (key == "valid") {
       int v;
       iss >> v;
@@ -57,6 +59,7 @@ void SaveCalibrationData(const CalibrationData& data) {
   out << "brightness_midpoint " << data.brightness_midpoint << "\n";
   out << "canny_threshold " << data.canny_threshold << "\n";
   out << "board_size " << data.board_size << "\n";
+  out << "auto_confirm_seconds " << data.auto_confirm_seconds << "\n";
   out << "valid " << (data.valid ? 1 : 0) << "\n";
 }
 

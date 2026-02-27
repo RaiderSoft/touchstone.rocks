@@ -185,6 +185,11 @@ void VisionSystem::ProcessFrame(const cv::Mat& frame) {
 
   // Raw per-frame detection.
   std::vector<StoneColor> raw(total, StoneColor::kEmpty);
+  std::vector<OffGridCircle> off_grid;
+
+  // Inverse perspective transform: image pixels → normalized grid coords.
+  cv::Mat inv_transform;
+  cv::invert(transform_, inv_transform);
 
   // Match each detected circle to its nearest grid intersection.
   float match_dist = grid_spacing * 0.45f;
@@ -205,7 +210,21 @@ void VisionSystem::ProcessFrame(const cv::Mat& frame) {
       }
     }
 
-    if (best_pos < 0) continue;
+    if (best_pos < 0) {
+      // Circle not near any intersection — record as off-grid.
+      if (!inv_transform.empty()) {
+        std::vector<cv::Point2f> in = {{ccx, ccy}};
+        std::vector<cv::Point2f> out;
+        cv::perspectiveTransform(in, out, inv_transform);
+        float gr = out[0].y * (board_size_ - 1);
+        float gc = out[0].x * (board_size_ - 1);
+        if (gr >= -0.5f && gr < board_size_ - 0.5f &&
+            gc >= -0.5f && gc < board_size_ - 0.5f) {
+          off_grid.push_back({gr, gc});
+        }
+      }
+      continue;
+    }
 
     // Classify by mean brightness within the detected circle.
     int icx = static_cast<int>(ccx), icy = static_cast<int>(ccy);
@@ -271,6 +290,7 @@ void VisionSystem::ProcessFrame(const cv::Mat& frame) {
 
   DetectionResult result;
   result.board = smoothed_board_;
+  result.off_grid = off_grid;
   result.board_found = true;
   result.confidence = 1.0f;
   result.frame_number = frame_counter_;

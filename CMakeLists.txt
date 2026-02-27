@@ -16,15 +16,14 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# Download board library (provides board_lib target + raylib)
+# Download raylib for rendering
 FetchContent_Declare(
-    boardgame
-    GIT_REPOSITORY https://github.com/cs257w26/boardgame.git
-    GIT_TAG dev
+    raylib
+    GIT_REPOSITORY https://github.com/raysan5/raylib.git
+    GIT_TAG 5.5
     GIT_SHALLOW TRUE
 )
-set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(boardgame)
+FetchContent_MakeAvailable(raylib)
 
 # Download nlohmann/json for Anthropic API client
 FetchContent_Declare(
@@ -57,6 +56,8 @@ add_executable(touchstone
     src/ui/board_overlay.cpp
     src/ui/game_context.cpp
     src/ui/game_controls.cpp
+    src/ui/vision_move.cpp
+    src/ui/puzzle_mode.cpp
     src/chat/chat_overlay.cpp
     src/chat/ai_provider.cpp
     src/engine/katago_engine.cpp
@@ -68,7 +69,7 @@ add_executable(touchstone
     cards/card_data.cpp
 )
 target_include_directories(touchstone PRIVATE include cards src)
-target_link_libraries(touchstone PRIVATE go_engine board_lib CURL::libcurl nlohmann_json::nlohmann_json)
+target_link_libraries(touchstone PRIVATE go_engine raylib CURL::libcurl nlohmann_json::nlohmann_json)
 if(APPLE)
     target_link_libraries(touchstone PRIVATE "-framework AudioToolbox")
 elseif(UNIX)

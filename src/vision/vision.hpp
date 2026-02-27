@@ -16,8 +16,15 @@ namespace touchstone {
 
 enum class StoneColor { kEmpty = 0, kBlack = 1, kWhite = 2 };
 
+// A circle detected by vision that didn't snap to any grid intersection.
+struct OffGridCircle {
+  float row;  // Fractional row (0-based, in grid units).
+  float col;  // Fractional col (0-based, in grid units).
+};
+
 struct DetectionResult {
   std::vector<StoneColor> board;  // size*size flat array
+  std::vector<OffGridCircle> off_grid;  // Circles not on any intersection.
   bool board_found = false;
   float confidence = 0.0f;
   int frame_number = 0;
