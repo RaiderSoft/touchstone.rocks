@@ -41,4 +41,24 @@ std::string FormatBoard(int size, const std::string& diagram, int marked_pos) {
   return out.str();
 }
 
+const char* CardTypeName(CardType t) {
+  switch (t) {
+    case CardType::kCapture:      return "Capture";
+    case CardType::kDefend:       return "Defend";
+    case CardType::kLifeAndDeath: return "Life & Death";
+    case CardType::kTesuji:       return "Tesuji";
+  }
+  return "?";
+}
+
+std::vector<int> ParseDiagram(const std::string& diagram) {
+  std::vector<int> cells;
+  for (char c : diagram) {
+    if (c == '.') cells.push_back(0);
+    else if (c == 'B') cells.push_back(1);
+    else if (c == 'W') cells.push_back(2);
+  }
+  return cells;
+}
+
 }  // namespace touchstone

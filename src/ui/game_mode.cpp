@@ -12,6 +12,7 @@
 #include "ui/game_context.hpp"
 #include "ui/game_controls.hpp"
 #include "ui/katago_overlay.hpp"
+#include "ui/vision_move.hpp"
 #include "persist/game_save.hpp"
 #include "go/game.hpp"
 #include "go/move.hpp"
@@ -103,14 +104,10 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
   if (vision_active) {
     vision->ResetDetection();
   }
-  int pending_pos = -1;
-  int detect_pos = -1;
-  int detect_confirm = 0;
-  const int DETECT_NEEDED = 5;
+  VisionMoveState vision_state;
   int computer_move_pos = -1;
   int place_confirm = 0;
   const int PLACE_NEEDED = 5;
-  double pending_timer = 0.0;  // Seconds pending_pos has been stable.
   float auto_confirm_secs = 0.0f;
   if (vision_active) {
     auto_confirm_secs = vision->GetCalibration().auto_confirm_seconds;
@@ -980,178 +977,82 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
         bool showing_confirm = false;
 
         if (vision_active) {
-          if (pending_pos >= 0) {
-            Vector2 pp = GameBoardPos(gb, pending_pos);
-            if (human_color == go::Stone::kBlack) {
-              DrawCircle(pp.x, pp.y, gb.piece_r, BLACK);
-            } else {
-              DrawCircle(pp.x, pp.y, gb.piece_r, WHITE);
-              DrawCircleLines(pp.x, pp.y, gb.piece_r, DARKGRAY);
-            }
-            DrawCircleLines(pp.x, pp.y, gb.piece_r + 3, GREEN);
+          auto det = vision->GetLatestDetection();
+          auto expected = BoardToVisionColors(game.GetBoard());
+          auto move_color =
+              (human_color == go::Stone::kBlack)
+                  ? touchstone::StoneColor::kBlack
+                  : touchstone::StoneColor::kWhite;
 
-            // Countdown pie overlay (fills clockwise from top).
+          auto vr = UpdateVisionMove(
+              vision_state, expected, move_color, det,
+              auto_confirm_secs, GetFrameTime(), [&](int pos) {
+                return go::ValidateMove(game.GetBoard(), pos, human_color,
+                                        game.PreviousBoard()) ==
+                       go::MoveResult::kOk;
+              });
+
+          if (!vr.mismatches.empty()) {
+            for (int pos : vr.mismatches) DrawMismatchRing(gb, pos);
+            showing_confirm = true;
+            DrawGameStatus(
+                gb,
+                "Board mismatch! Fix the board before moving.  [ESC=quit]");
+          } else if (vr.pending_pos >= 0) {
+            DrawPendingMove(gb, vr.pending_pos,
+                            human_color == go::Stone::kBlack,
+                            vr.pending_progress, auto_confirm_secs);
+            showing_confirm = true;
             if (auto_confirm_secs > 0) {
-              float progress = (float)pending_timer / auto_confirm_secs;
-              if (progress > 1.0f) progress = 1.0f;
-              // DrawCircleSector uses angles where 0=right, so start
-              // at -90 (top) and sweep clockwise by progress * 360.
-              float start_angle = -90.0f;
-              float end_angle = start_angle + progress * 360.0f;
-              float pie_r = gb.piece_r + 2;
-              DrawCircleSector({pp.x, pp.y}, pie_r, start_angle, end_angle,
-                               36, Color{100, 220, 100, 100});
-              DrawCircleSectorLines({pp.x, pp.y}, pie_r, start_angle,
-                                    end_angle, 36, Color{100, 220, 100, 200});
-            }
-
-            auto det = vision->GetLatestDetection();
-            auto expected_vision_color =
-                (human_color == go::Stone::kBlack)
-                    ? touchstone::StoneColor::kBlack
-                    : touchstone::StoneColor::kWhite;
-            bool still_there =
-                det.board_found &&
-                pending_pos < (int)det.board.size() &&
-                det.board[pending_pos] == expected_vision_color;
-
-            if (!still_there) {
-              pending_pos = -1;
-              pending_timer = 0.0;
+              float remaining = auto_confirm_secs -
+                  static_cast<float>(vision_state.pending_timer);
+              if (remaining < 0) remaining = 0;
+              DrawGameStatus(
+                  gb, TextFormat("Move detected. Auto-confirm in %.1fs  "
+                                 "[SPACE=now]  [ESC=quit]", remaining));
             } else {
-              pending_timer += GetFrameTime();
-              showing_confirm = true;
-
-              bool auto_confirmed =
-                  auto_confirm_secs > 0 && pending_timer >= auto_confirm_secs;
-
-              if (auto_confirm_secs > 0) {
-                float remaining = auto_confirm_secs - (float)pending_timer;
-                if (remaining < 0) remaining = 0;
-                DrawGameStatus(
-                    gb, TextFormat("Move detected. Auto-confirm in %.1fs  "
-                                   "[SPACE=now]  [ESC=quit]", remaining));
-              } else {
-                DrawGameStatus(
-                    gb, "Move detected. Press SPACE to confirm.  [ESC=quit]");
-              }
-
-              if (IsKeyPressed(KEY_SPACE) || auto_confirmed) {
-                // Save undo snapshot before playing.
-                GameSnapshot snap = {game, move_history,
-                    move_log, prev_winrate,
-                    prev_score_lead, last_black_pos, last_white_pos,
-                    black_quality, white_quality,
-                    black_quality_pending, white_quality_pending,
-                    has_black_move, has_white_move, pre_move_top3};
-                auto result = game.Play(pending_pos);
-                if (result == go::MoveResult::kOk) {
-                  undo_stack.push_back(std::move(snap));
-                  redo_stack.clear();  // New move = fork, discard redo.
-                  if (human_color == go::Stone::kBlack) {
-                    last_black_pos = pending_pos;
-                    black_quality = 0.0f;
-                    black_quality_pending = true;
-                    has_black_move = true;
-                  } else {
-                    last_white_pos = pending_pos;
-                    white_quality = 0.0f;
-                    white_quality_pending = true;
-                    has_white_move = true;
-                  }
-                  move_log.push_back({static_cast<int>(move_log.size()) + 1,
-                      human_color,
-                      katago::PosToGtp(pending_pos, BOARD_SZ),
-                      prev_winrate, 0, prev_score_lead, 0,
-                      pre_move_top3, 0, false,
-                      static_cast<int>(move_history.size()) + 1});
-                  RecordAndAnalyze(move_history, human_color, pending_pos,
-                                   katago);
-                  gp = GP::kComputerTurn;
-                  think_frames = 0;
-                  katago_move_requested = false;
-                }
-                pending_pos = -1;
-                pending_timer = 0.0;
-                detect_pos = -1;
-                detect_confirm = 0;
-              }
+              DrawGameStatus(
+                  gb, "Move detected. Press SPACE to confirm.  [ESC=quit]");
             }
           }
 
-          if (pending_pos < 0) {
-            auto det = vision->GetLatestDetection();
-            auto human_vision_color =
-                (human_color == go::Stone::kBlack)
-                    ? touchstone::StoneColor::kBlack
-                    : touchstone::StoneColor::kWhite;
-            if (det.board_found) {
-              auto mismatches = FindBoardMismatches(game.GetBoard(), det);
-
-              std::vector<int> real_mismatches;
-              bool allowed_one = false;
-              for (int pos : mismatches) {
-                if (!allowed_one &&
-                    game.GetBoard().At(pos) == go::Stone::kEmpty &&
-                    det.board[pos] == human_vision_color) {
-                  allowed_one = true;
-                  continue;
-                }
-                real_mismatches.push_back(pos);
-              }
-
-              if (!real_mismatches.empty()) {
-                for (int pos : real_mismatches) {
-                  DrawMismatchRing(gb, pos);
-                }
-                showing_confirm = true;
-                DrawGameStatus(
-                    gb,
-                    "Board mismatch! Fix the board before moving.  [ESC=quit]");
-                detect_pos = -1;
-                detect_confirm = 0;
+          if (vr.confirmed_pos >= 0) {
+            GameSnapshot snap = {game, move_history,
+                move_log, prev_winrate,
+                prev_score_lead, last_black_pos, last_white_pos,
+                black_quality, white_quality,
+                black_quality_pending, white_quality_pending,
+                has_black_move, has_white_move, pre_move_top3};
+            auto mr = game.Play(vr.confirmed_pos);
+            if (mr == go::MoveResult::kOk) {
+              undo_stack.push_back(std::move(snap));
+              redo_stack.clear();
+              if (human_color == go::Stone::kBlack) {
+                last_black_pos = vr.confirmed_pos;
+                black_quality = 0.0f;
+                black_quality_pending = true;
+                has_black_move = true;
               } else {
-                int n = game.GetBoard().NumPositions();
-                int new_pos = -1;
-                int diff_count = 0;
-                for (int i = 0; i < n && i < (int)det.board.size(); i++) {
-                  if (game.GetBoard().At(i) == go::Stone::kEmpty &&
-                      det.board[i] == human_vision_color) {
-                    new_pos = i;
-                    diff_count++;
-                  }
-                }
-                if (diff_count == 1) {
-                  if (new_pos == detect_pos) {
-                    detect_confirm++;
-                    if (detect_confirm >= DETECT_NEEDED) {
-                      auto vr = go::ValidateMove(game.GetBoard(), new_pos,
-                                                  human_color,
-                                                  game.PreviousBoard());
-                      if (vr == go::MoveResult::kOk) {
-                        pending_pos = new_pos;
-                        pending_timer = 0.0;
-                      }
-                      detect_pos = -1;
-                      detect_confirm = 0;
-                    }
-                  } else {
-                    detect_pos = new_pos;
-                    detect_confirm = 1;
-                  }
-                } else {
-                  detect_pos = -1;
-                  detect_confirm = 0;
-                }
+                last_white_pos = vr.confirmed_pos;
+                white_quality = 0.0f;
+                white_quality_pending = true;
+                has_white_move = true;
               }
+              move_log.push_back({static_cast<int>(move_log.size()) + 1,
+                  human_color,
+                  katago::PosToGtp(vr.confirmed_pos, BOARD_SZ),
+                  prev_winrate, 0, prev_score_lead, 0,
+                  pre_move_top3, 0, false,
+                  static_cast<int>(move_history.size()) + 1});
+              RecordAndAnalyze(move_history, human_color, vr.confirmed_pos,
+                               katago);
+              gp = GP::kComputerTurn;
+              think_frames = 0;
+              katago_move_requested = false;
             }
           }
 
-          // Draw off-grid piece warnings.
-          {
-            auto det_og = vision->GetLatestDetection();
-            DrawOffGridRings(gb, det_og);
-          }
+          DrawOffGridRings(gb, det);
         }
 
         if (!showing_confirm) {
@@ -1378,8 +1279,7 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
             if (place_confirm >= PLACE_NEEDED) {
               computer_move_pos = -1;
               place_confirm = 0;
-              detect_pos = -1;
-              detect_confirm = 0;
+              vision_state.Reset();
               gp = GP::kPlayerTurn;
             }
           } else {
@@ -1411,8 +1311,7 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
                          "Computer passes. Press SPACE to continue.");
           if (IsKeyPressed(KEY_SPACE)) {
             computer_move_pos = -1;
-            detect_pos = -1;
-            detect_confirm = 0;
+            vision_state.Reset();
             gp = GP::kPlayerTurn;
           }
         }

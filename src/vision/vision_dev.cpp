@@ -2,67 +2,7 @@
 
 #include <cstdio>
 
-#include "go/board.hpp"
 #include "raylib.h"
-
-// ---------------------------------------------------------------------------
-// Vision move detection
-// ---------------------------------------------------------------------------
-
-int DetectVisionMove(touchstone::VisionSystem& vision,
-                     const touchstone::Card& card,
-                     touchstone::DetectionResult& baseline,
-                     bool& baseline_captured) {
-  static int last_pos = -1;
-  static int confirm_count = 0;
-  const int REQUIRED = 5;
-
-  auto det = vision.GetLatestDetection();
-  if (!det.board_found) return -1;
-
-  if (!baseline_captured) {
-    baseline = det;
-    baseline_captured = true;
-    last_pos = -1;
-    confirm_count = 0;
-    return -1;
-  }
-
-  touchstone::StoneColor expected =
-      (card.player_to_move == go::Stone::kBlack)
-          ? touchstone::StoneColor::kBlack
-          : touchstone::StoneColor::kWhite;
-
-  int total = card.board_size * card.board_size;
-  int new_pos = -1;
-  int diff_count = 0;
-
-  for (int i = 0; i < total; i++) {
-    if (baseline.board[i] == touchstone::StoneColor::kEmpty &&
-        det.board[i] == expected) {
-      new_pos = i;
-      diff_count++;
-    }
-  }
-
-  if (diff_count == 1) {
-    if (new_pos == last_pos) {
-      confirm_count++;
-      if (confirm_count >= REQUIRED) {
-        confirm_count = 0;
-        last_pos = -1;
-        return new_pos;
-      }
-    } else {
-      last_pos = new_pos;
-      confirm_count = 1;
-    }
-  } else {
-    last_pos = -1;
-    confirm_count = 0;
-  }
-  return -1;
-}
 
 // ---------------------------------------------------------------------------
 // Simple UI helpers for vision dev mode

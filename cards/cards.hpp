@@ -35,4 +35,11 @@ bool IsCorrectMove(const Card& card, int pos);
 std::string FormatBoard(int size, const std::string& diagram,
                         int marked_pos = -1);
 
+// Human-readable name for a card type.
+const char* CardTypeName(CardType t);
+
+// Parse a diagram string into a flat vector of cell values.
+// '.'=>0 (empty), 'B'=>1 (black), 'W'=>2 (white).
+std::vector<int> ParseDiagram(const std::string& diagram);
+
 }  // namespace touchstone
