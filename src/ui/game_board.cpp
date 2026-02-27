@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <string>
 
 GameBoard CalcGameBoard(int size, int screen_w, int screen_h) {
   GameBoard gb;
@@ -225,4 +226,75 @@ std::vector<int> FindBoardMismatches(const go::Board& expected,
     if (!match) mismatches.push_back(i);
   }
   return mismatches;
+}
+
+void DrawMismatchRing(const GameBoard& gb, int pos) {
+  Vector2 p = GameBoardPos(gb, pos);
+  DrawRing({p.x, p.y}, gb.piece_r + 1, gb.piece_r + 4, 0, 360, 36, RED);
+}
+
+void DrawOffGridRings(const GameBoard& gb,
+                      const touchstone::DetectionResult& det) {
+  for (auto& og : det.off_grid) {
+    float px = gb.offset_x + og.col * gb.cell;
+    float py = gb.offset_y + og.row * gb.cell;
+    DrawRing({px, py}, gb.piece_r + 1, gb.piece_r + 4, 0, 360, 36, RED);
+  }
+}
+
+void DrawStone(const GameBoard& gb, int pos, bool black) {
+  Vector2 p = GameBoardPos(gb, pos);
+  if (black) {
+    DrawCircle(p.x, p.y, gb.piece_r, BLACK);
+  } else {
+    DrawCircle(p.x, p.y, gb.piece_r, WHITE);
+    DrawCircleLines(p.x, p.y, gb.piece_r, DARKGRAY);
+  }
+}
+
+void DrawGameBoardFromDiagram(const GameBoard& gb,
+                              const std::string& diagram) {
+  // Background.
+  static const Color kGridBg = {210, 180, 120, 255};
+  ClearBackground(kGridBg);
+
+  // Grid lines.
+  for (int i = 0; i < gb.size; i++) {
+    Vector2 a = GameBoardPos(gb, i * gb.size);
+    Vector2 b = GameBoardPos(gb, i * gb.size + gb.size - 1);
+    DrawLineEx(a, b, 1.5f, BLACK);
+    Vector2 c = GameBoardPos(gb, i);
+    Vector2 d = GameBoardPos(gb, (gb.size - 1) * gb.size + i);
+    DrawLineEx(c, d, 1.5f, BLACK);
+  }
+
+  // Star points.
+  auto draw_stars = [&](const int* pts, int count) {
+    for (int i = 0; i < count; i++) {
+      Vector2 p = GameBoardPos(gb, pts[i]);
+      DrawCircle(p.x, p.y, 4, BLACK);
+    }
+  };
+  if (gb.size == 9) {
+    int s[] = {2*9+2, 2*9+6, 6*9+2, 6*9+6, 4*9+4};
+    draw_stars(s, 5);
+  } else if (gb.size == 13) {
+    int s[] = {3*13+3, 3*13+9, 9*13+3, 9*13+9, 6*13+6,
+               3*13+6, 9*13+6, 6*13+3, 6*13+9};
+    draw_stars(s, 9);
+  }
+
+  // Stones from diagram.
+  int pos = 0;
+  for (char c : diagram) {
+    if (c == '.') {
+      pos++;
+    } else if (c == 'B') {
+      DrawStone(gb, pos, true);
+      pos++;
+    } else if (c == 'W') {
+      DrawStone(gb, pos, false);
+      pos++;
+    }
+  }
 }

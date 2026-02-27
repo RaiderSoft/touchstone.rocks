@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 
-#include "boardgame/board.hpp"
 #include "ui/board_overlay.hpp"
 #include "ui/game_board.hpp"
 #include "ui/game_context.hpp"
@@ -1103,8 +1102,7 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
 
               if (!real_mismatches.empty()) {
                 for (int pos : real_mismatches) {
-                  Vector2 p = GameBoardPos(gb, pos);
-                  DrawCircleLines(p.x, p.y, gb.piece_r + 3, RED);
+                  DrawMismatchRing(gb, pos);
                 }
                 showing_confirm = true;
                 DrawGameStatus(
@@ -1147,6 +1145,12 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
                 }
               }
             }
+          }
+
+          // Draw off-grid piece warnings.
+          {
+            auto det_og = vision->GetLatestDetection();
+            DrawOffGridRings(gb, det_og);
           }
         }
 
@@ -1364,9 +1368,10 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
 
           for (int pos : mismatches) {
             if (pos == computer_move_pos) continue;
-            Vector2 p = GameBoardPos(gb, pos);
-            DrawCircleLines(p.x, p.y, gb.piece_r + 3, ORANGE);
+            DrawMismatchRing(gb, pos);
           }
+
+          DrawOffGridRings(gb, det);
 
           if (det.board_found && mismatches.empty()) {
             place_confirm++;
@@ -1449,6 +1454,5 @@ void RunGame(ChatOverlay& chat, katago::Engine* katago,
     EndDrawing();
   }
 
-done:
-  SetupGoBoard(9);
+done:;
 }

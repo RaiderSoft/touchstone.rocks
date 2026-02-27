@@ -25,12 +25,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(raylib)
 
-# Board rendering and menu UI
-add_library(board_lib src/boardgame/board.cpp src/boardgame/menu.cpp)
-set_target_properties(board_lib PROPERTIES CXX_STANDARD 17)
-target_include_directories(board_lib PUBLIC src/boardgame)
-target_link_libraries(board_lib PUBLIC raylib)
-
 # Download nlohmann/json for Anthropic API client
 FetchContent_Declare(
     json
@@ -73,7 +67,7 @@ add_executable(touchstone
     cards/card_data.cpp
 )
 target_include_directories(touchstone PRIVATE include cards src)
-target_link_libraries(touchstone PRIVATE go_engine board_lib CURL::libcurl nlohmann_json::nlohmann_json)
+target_link_libraries(touchstone PRIVATE go_engine raylib CURL::libcurl nlohmann_json::nlohmann_json)
 if(APPLE)
     target_link_libraries(touchstone PRIVATE "-framework AudioToolbox")
 elseif(UNIX)

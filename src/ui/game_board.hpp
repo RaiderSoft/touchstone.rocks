@@ -37,3 +37,18 @@ void MoveToSecondMonitor();
 // Returns positions where the physical board doesn't match.
 std::vector<int> FindBoardMismatches(const go::Board& expected,
                                      const touchstone::DetectionResult& det);
+
+// Draw a thick red ring at a grid position (mismatch / error highlight).
+void DrawMismatchRing(const GameBoard& gb, int pos);
+
+// Draw thick red rings at fractional grid positions (off-grid pieces).
+void DrawOffGridRings(const GameBoard& gb,
+                      const touchstone::DetectionResult& det);
+
+// Draw the board background, grid, and stones from a diagram string.
+// diagram uses '.', 'B', 'W' characters.
+void DrawGameBoardFromDiagram(const GameBoard& gb,
+                              const std::string& diagram);
+
+// Draw a single stone at a grid position.
+void DrawStone(const GameBoard& gb, int pos, bool black);

@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 
-#include "boardgame/board.hpp"
 #include "cards.hpp"
 #include "ui/widgets.hpp"
 #include "chat/chat_overlay.hpp"
@@ -28,6 +27,10 @@
 // Puzzle helpers
 // ---------------------------------------------------------------------------
 
+static constexpr int kEmpty = 0;
+static constexpr int kPlayer1 = 1;   // Black
+static constexpr int kPlayer2 = 2;   // White
+
 static std::vector<int> ParseDiagram(const std::string& diagram) {
   std::vector<int> cells;
   for (char c : diagram) {
@@ -36,15 +39,6 @@ static std::vector<int> ParseDiagram(const std::string& diagram) {
     else if (c == 'W') cells.push_back(kPlayer2);
   }
   return cells;
-}
-
-static void DrawBoardPieces(const touchstone::Card& card) {
-  auto cells = ParseDiagram(card.diagram);
-  for (int i = 0; i < static_cast<int>(cells.size()); i++) {
-    if (cells[i] != kEmpty) {
-      DrawPiece(i, cells[i]);
-    }
-  }
 }
 
 static const char* CardTypeName(touchstone::CardType t) {
@@ -168,7 +162,7 @@ int main(int argc, char* argv[]) {
   MaximizeWindow();
   SetTargetFPS(60);
   SetExitKey(0);
-  SetupGoBoard(9);
+  GameBoard puzzle_gb = CalcGameBoard(9, GetScreenWidth(), GetScreenHeight());
   InitAudioDevice();
   MoveToSecondMonitor();
 
@@ -210,9 +204,10 @@ int main(int argc, char* argv[]) {
   // Main loop
   // -----------------------------------------------------------------------
 
-  while (!ShouldClose()) {
+  while (!WindowShouldClose()) {
     if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
-    if (IsWindowResized()) SetupGoBoard(9);
+    if (IsWindowResized())
+      puzzle_gb = CalcGameBoard(9, GetScreenWidth(), GetScreenHeight());
 
     // --- Menu phase ---
     if (phase == Phase::kMenu) {
@@ -469,11 +464,11 @@ int main(int argc, char* argv[]) {
 
     // --- Puzzle phases ---
     bool chat_consumed = chat.HandleInput();
-    BeginFrame();
+    BeginDrawing();
 
     {
       const auto& card = deck[qi];
-      DrawBoardPieces(card);
+      DrawGameBoardFromDiagram(puzzle_gb, card.diagram);
 
       switch (phase) {
         case Phase::kSetup: {
@@ -517,7 +512,7 @@ int main(int argc, char* argv[]) {
               if (exp_black && !det_black) wrong = true;
               if (exp_white && !det_white) wrong = true;
               if (wrong) {
-                DrawHighlight(i);
+                DrawMismatchRing(puzzle_gb, i);
                 errors++;
               }
             }
@@ -532,14 +527,15 @@ int main(int argc, char* argv[]) {
               setup_confirm = 0;
               break;
             }
-            DrawStatus(TextFormat("[%d/%d] Board ready! Confirming...",
-                                  qi + 1, (int)deck.size()));
+            DrawGameStatus(puzzle_gb,
+                TextFormat("[%d/%d] Board ready! Confirming...",
+                           qi + 1, (int)deck.size()));
           } else {
             setup_confirm = 0;
-            DrawStatus(TextFormat(
-                "[%d/%d] Set up the board: %d/%d stones placed",
-                qi + 1, (int)deck.size(), stones_matched,
-                stones_expected));
+            DrawGameStatus(puzzle_gb,
+                TextFormat("[%d/%d] Set up the board: %d/%d stones placed",
+                           qi + 1, (int)deck.size(), stones_matched,
+                           stones_expected));
           }
           break;
         }
@@ -555,7 +551,7 @@ int main(int argc, char* argv[]) {
             break;
           }
 
-          int clicked = GetClickedPosition();
+          int clicked = GameBoardClick(puzzle_gb);
           bool board_mismatch = false;
 
           if (clicked < 0 && vision_active) {
@@ -573,7 +569,7 @@ int main(int argc, char* argv[]) {
                      det.board[i] == touchstone::StoneColor::kWhite);
                 if (!match) {
                   board_mismatch = true;
-                  DrawHighlight(i);
+                  DrawMismatchRing(puzzle_gb, i);
                 }
               }
             }
@@ -584,15 +580,16 @@ int main(int argc, char* argv[]) {
           }
 
           if (board_mismatch) {
-            DrawStatus(
+            DrawGameStatus(puzzle_gb,
                 "Board mismatch! Fix the board before moving.  [ESC=menu]");
           } else {
             std::string player =
                 (card.player_to_move == go::Stone::kBlack) ? "Black"
                                                            : "White";
-            DrawStatus(TextFormat("%s to play.%s  [ESC=menu]",
-                                  player.c_str(),
-                                  card.hint.empty() ? "" : " [H=hint]"));
+            DrawGameStatus(puzzle_gb,
+                TextFormat("%s to play.%s  [ESC=menu]",
+                           player.c_str(),
+                           card.hint.empty() ? "" : " [H=hint]"));
           }
 
           if (clicked >= 0) {
@@ -623,9 +620,13 @@ int main(int argc, char* argv[]) {
         case Phase::kCorrect: {
           int player = (card.player_to_move == go::Stone::kBlack) ? kPlayer1
                                                                   : kPlayer2;
-          DrawPiece(last_clicked, player);
-          DrawHighlight(last_clicked);
-          DrawStatus(
+          DrawStone(puzzle_gb, last_clicked, player == kPlayer1);
+          {
+            Vector2 hp = GameBoardPos(puzzle_gb, last_clicked);
+            DrawRing({hp.x, hp.y}, puzzle_gb.piece_r + 1,
+                     puzzle_gb.piece_r + 4, 0, 360, 36, GREEN);
+          }
+          DrawGameStatus(puzzle_gb,
               ("Correct! " + card.explanation + "  [SPACE]").c_str());
 
           if (IsKeyPressed(KEY_SPACE)) {
@@ -636,12 +637,12 @@ int main(int argc, char* argv[]) {
         }
 
         case Phase::kIncorrect: {
-          int player = (card.player_to_move == go::Stone::kBlack) ? kPlayer1
-                                                                  : kPlayer2;
-          DrawPiece(last_clicked, player);
+          bool is_black = (card.player_to_move == go::Stone::kBlack);
+          DrawStone(puzzle_gb, last_clicked, is_black);
 
           if (vision_active) {
-            DrawStatus("Incorrect. Remove the stone to try again.");
+            DrawGameStatus(puzzle_gb,
+                           "Incorrect. Remove the stone to try again.");
             auto det = vision.GetLatestDetection();
             if (det.board_found && last_clicked >= 0 &&
                 last_clicked < (int)det.board.size() &&
@@ -658,7 +659,7 @@ int main(int argc, char* argv[]) {
               removal_confirm = 0;
             }
           } else {
-            DrawStatus("Incorrect. Try again!  [SPACE]");
+            DrawGameStatus(puzzle_gb, "Incorrect. Try again!  [SPACE]");
             if (IsKeyPressed(KEY_SPACE)) {
               last_clicked = -1;
               phase = Phase::kShowPuzzle;
@@ -668,7 +669,8 @@ int main(int argc, char* argv[]) {
         }
 
         case Phase::kHint: {
-          DrawStatus(("Hint: " + card.hint + "  [SPACE]").c_str());
+          DrawGameStatus(puzzle_gb,
+              ("Hint: " + card.hint + "  [SPACE]").c_str());
           if (IsKeyPressed(KEY_SPACE)) {
             phase = Phase::kShowPuzzle;
           }
@@ -681,14 +683,14 @@ int main(int argc, char* argv[]) {
     }
 
     chat.Draw(GetScreenWidth(), GetScreenHeight());
-    EndFrame();
+    EndDrawing();
   }
 
   if (vision_active) vision.Stop();
 
   katago_engine.Stop();
   CloseAudioDevice();
-  CloseBoard();
+  CloseWindow();
   curl_global_cleanup();
   return 0;
 }
