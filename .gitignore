@@ -6,3 +6,7 @@ analysis_logs/
 tools/tromp_score
 tools/tromp_score.hi
 tools/tromp_score.o
+
+# Web
+web/node_modules/
+web/.next/
